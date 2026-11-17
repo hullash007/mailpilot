@@ -57,6 +57,7 @@ _PAGE = """<!DOCTYPE html>
   .label.sample { background: #fde8e8; color: #8f1d1d; font-weight: 700; }
   .label.cat { background: #e6f4ea; color: #1e7e34; }
   .label.prio-high { background: #fde8e8; color: #8f1d1d; font-weight: 700; }
+  .label.ai { background: #fff4e0; color: #8a5a00; }
   td, th { overflow-wrap: anywhere; }
   @media (max-width: 640px) {
     header { padding: 12px 16px; flex-wrap: wrap; }
@@ -75,7 +76,7 @@ _PAGE = """<!DOCTYPE html>
 </style>
 </head>
 <body>
-<header><h1>MailPilot</h1><span>Read-only. Categories/priorities are rule-based baseline suggestions, not AI understanding.</span></header>
+<header><h1>MailPilot</h1><span>Read-only. Rule-based baseline stays authoritative. AI suggestions are separate and unverified.</span></header>
 <section class="stats">
   <div class="stat"><b>__EMAIL_COUNT__</b><span>emails stored</span></div>
   <div class="stat"><b>__THREAD_COUNT__</b><span>threads</span></div>
@@ -98,6 +99,7 @@ _ROW = """<tr>
 _SAMPLE_BADGE = ' <span class="label sample">SAMPLE</span>'
 _CAT_BADGE = '<span class="label cat">{}</span>'
 _PRIO_BADGE = '<span class="label prio-high">high priority</span>'
+_AI_BADGE = '<span class="label ai">AI suggests: {}</span>'
 _BANNER = ('<div class="banner">Showing sample data - this is not connected to '
            'a real inbox.</div>')
 
@@ -135,6 +137,9 @@ def dashboard(db: Session = Depends(get_db)) -> HTMLResponse:
                 class_badges=(
                     (_CAT_BADGE.format(_esc(e.category)) if e.category else "")
                     + (_PRIO_BADGE if e.priority == "high" else "")
+                    + (_AI_BADGE.format(_esc(e.ai_category) + " / " + _esc(e.ai_priority))
+                       if getattr(e, "ai_category", "") and
+                       (e.ai_category != e.category or e.ai_priority != e.priority) else "")
                 ),
                 labels="".join(
                     f'<span class="label">{_esc(str(l))}</span>' for l in (e.label_ids or [])
