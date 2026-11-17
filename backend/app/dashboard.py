@@ -154,11 +154,25 @@ def dashboard(db: Session = Depends(get_db)) -> HTMLResponse:
         )
     else:
         body = _EMPTY
+    # Navigation is offered only when ALL account rows are sample-owned and
+    # structurally consistent, not inferred from the latest100 displayed rows.
+    from .models import GmailAccount
+    from .services.briefing import validate_sample_account
+    from fastapi import HTTPException
+    links=[]
+    for account_id in db.scalars(select(GmailAccount.id).order_by(GmailAccount.id).limit(20)).all():
+        try:
+            sample_count=validate_sample_account(db,account_id)
+        except HTTPException:
+            continue
+        if sample_count:
+            links.append(f'<a href="/dashboard/accounts/{account_id}/sample-briefing">Sample evidence inventory - account {account_id}</a>')
+    nav='<nav aria-label="Sample evidence">'+ ' | '.join(links)+'</nav>' if links else ''
     banner = _BANNER if any(getattr(e, "is_sample", False) for e in rows) else ""
     html = (
         _PAGE.replace("__EMAIL_COUNT__", str(email_count))
         .replace("__THREAD_COUNT__", str(thread_count))
         .replace("__BANNER__", banner)
-        .replace("__BODY__", body)
+        .replace("__BODY__", nav+body)
     )
     return HTMLResponse(html)
