@@ -21,6 +21,9 @@ class Settings(BaseSettings):
     llm_base_url: str = ""
     llm_model: str = ""
     llm_api_key: str = ""
+    # Off by default: when on, /classify backfill asks the private endpoint to
+    # refine each rule-based suggestion; failures fall back to the rule result.
+    llm_refine: bool = False
     # Access boundary: empty = loopback-only (fail closed for remote).
     # Set for any remote/VM exposure; then serve over HTTPS with cookie_secure.
     app_access_token: str = ""
