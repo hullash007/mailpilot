@@ -49,7 +49,12 @@ Phase 1 is strictly read-only. No sending, deleting, or label changes.
 
 Google Cloud setup: create a project, enable the Gmail API, configure the
 OAuth consent screen, and create an OAuth client (Web application) with
-redirect URI `http://localhost:8000/auth/google/callback`.
+redirect URI `http://localhost:8000/auth/google/callback`. While the consent
+screen is in Testing mode, add each connecting Google account under
+APIs & Services -> OAuth consent screen -> Test users, or Google blocks the
+login with "Access blocked". The Gmail API enablement can take a few minutes
+to propagate; a 403 `accessNotConfigured` right after enabling just means
+retry shortly.
 
 Then open `http://localhost:8000/auth/google/login` to connect a Gmail
 account, and `POST /ingest/{account_id}` to pull mail into PostgreSQL.
@@ -70,7 +75,10 @@ account, and `POST /ingest/{account_id}` to pull mail into PostgreSQL.
 Security notes: emails are untrusted input; a deterministic policy engine -
 not the LLM - authorizes actions. OAuth login state is stored server-side,
 expires after 10 minutes, is single-use, and is bound to the initiating
-browser with an HMAC-signed HttpOnly cookie (OAUTH_STATE_SECRET). OAuth
+browser with an HMAC-signed HttpOnly cookie (OAUTH_STATE_SECRET). The PKCE
+code verifier is stored server-side with the state row (same expiry,
+deleted on consume) so the token exchange can prove it initiated the
+request. OAuth
 tokens are stored per account, Fernet-encrypted at rest (TOKEN_ENCRYPTION_KEY
 required; storage fails closed without it). LLM features (Phase 2) use a
 config-driven OpenAI-compatible endpoint (LLM_BASE_URL/LLM_MODEL) intended
