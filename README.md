@@ -22,6 +22,16 @@ require explicit approval.
 
 Phase 1 is strictly read-only. No sending, deleting, or label changes.
 
+## Phase 2 - Email Intelligence (started)
+
+- Deterministic baseline classification on ingest: every stored email gets a
+  `category` (receipt, newsletter, notification, promotions, social, updates,
+  forums, personal) and a `priority` (high, normal, low) from transparent,
+  auditable rules over headers and Gmail labels - no LLM required
+- `POST /classify/{account_id}` backfills older rows (idempotent)
+- LLM-refined classification and summaries arrive once a private model
+  endpoint is configured (LLM_BASE_URL/LLM_MODEL)
+
 ## Repository layout
 
     backend/
