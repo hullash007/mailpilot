@@ -223,3 +223,27 @@ limits are separate explicit fields. Evidence offsets refer to source text
 from that thread's review endpoint. No returned result claims freshness,
 daily completeness, verified urgency or absence of omitted obligations.
 No LLM, network call, persistent write or mail effect is involved.
+
+The same accepted inventory is available at
+`/dashboard/accounts/{account_id}/sample-briefing`. Eligible sample accounts
+among the first 20 account IDs get a navigation link on `/dashboard`; a
+missing navigation link is not an account-completeness claim. The page uses
+the same API data, escaped excerpts, source anchors, scan limits and explicit
+omission counts. Source links lead to the read-only sample thread review.
+No delivery, refresh worker or daily automation is installed by this view.
+
+### Reproducible test environment
+
+Python 3.10 Linux reference lock:
+`pip install -r backend/requirements-lock-py310-linux.txt`.
+This exact dependency set was resolved into a new empty virtual environment
+and passed 105 tests (two optional integrations skipped), with `pip check`
+clean. It is a tested reference snapshot, not a claim that every platform,
+Python version or future lower-bound combination was tested. New deployments
+should regenerate and test a platform-specific lock before changing it.
+
+The flexible `requirements.txt` now explicitly requires Starlette >=0.44.0:
+its `TestClient(client=...)` option is used to verify remote access denial and
+was introduced in that release (official notes:
+https://starlette.dev/release-notes/). Resolver constraints from FastAPI still
+apply. Merely forcing0.50 into an older incompatible FastAPI is not safe.
