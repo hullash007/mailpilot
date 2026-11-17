@@ -1,5 +1,6 @@
 """HTTP API for Phase 1: OAuth, ingestion, and read access to stored mail."""
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, Request
+from fastapi.responses import JSONResponse
 from pydantic import BaseModel
 from sqlalchemy import select
 from sqlalchemy.orm import Session
@@ -9,6 +10,7 @@ from ..integrations.gmail import oauth
 from ..integrations.gmail.client import GmailClient
 from ..models import Email, GmailAccount, Thread
 from ..services.ingestion import ingest_account
+from ..services import oauth_state
 
 router = APIRouter()
 
@@ -24,17 +26,39 @@ class LoginResponse(BaseModel):
 
 
 @router.get("/auth/google/login", response_model=LoginResponse)
-def google_login() -> LoginResponse:
+def google_login(db: Session = Depends(get_db)) -> JSONResponse:
     try:
         url, state = oauth.authorization_url()
     except RuntimeError as exc:
         raise HTTPException(status_code=503, detail=str(exc))
-    return LoginResponse(authorization_url=url, state=state)
+    oauth_state.issue_state(db, state)
+    response = JSONResponse(content=LoginResponse(authorization_url=url, state=state).model_dump())
+    # Binds this state to the initiating browser; the callback requires it.
+    response.set_cookie(
+        oauth_state.COOKIE_NAME,
+        oauth_state.sign_state(state),
+        max_age=oauth_state.STATE_TTL_SECONDS,
+        httponly=True,
+        samesite="lax",
+    )
+    return response
 
 
 @router.get("/auth/google/callback")
-def google_callback(code: str, state: str | None = None, db: Session = Depends(get_db)) -> dict:
-    credentials = oauth.exchange_code(code, state=state)
+def google_callback(
+    request: Request, code: str, state: str | None = None, db: Session = Depends(get_db)
+) -> dict:
+    if not state:
+        raise HTTPException(status_code=400, detail="Missing OAuth state.")
+    if not oauth_state.cookie_matches(request.cookies.get(oauth_state.COOKIE_NAME), state):
+        raise HTTPException(status_code=403, detail="OAuth state does not match this browser.")
+    if not oauth_state.consume_state(db, state):
+        raise HTTPException(status_code=403, detail="OAuth state is unknown, used or expired.")
+    try:
+        credentials = oauth.exchange_code(code, state=state)
+    except Exception:
+        # State is already consumed; the user must restart login.
+        raise HTTPException(status_code=502, detail="Google token exchange failed; please restart login.")
     profile = GmailClient(credentials).get_profile()
     address = profile.get("emailAddress")
     if not address:
