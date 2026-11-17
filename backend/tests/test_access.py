@@ -39,6 +39,7 @@ def test_token_mode_requires_token(client, monkeypatch):
     assert client.get("/emails").status_code == 401
     assert client.get("/dashboard").status_code == 401
     assert client.post("/classify/1").status_code == 401  # backfill route is behind the same boundary
+    assert client.post("/refine/1").status_code == 401  # LLM second-opinion route too
     assert client.get("/emails", headers={"Authorization": "Bearer wrong"}).status_code == 401
     assert client.get("/emails", headers={"Authorization": "Bearer sekret"}).status_code == 200
 
