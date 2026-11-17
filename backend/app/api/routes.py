@@ -190,3 +190,10 @@ def sample_thread_review(account_id: int, thread_id: int, db: Session = Depends(
     """Derived literal evidence only; no persistence, LLM or mailbox effects."""
     from ..services.thread_review import review_thread
     return review_thread(db, account_id, thread_id)
+
+
+@router.get('/accounts/{account_id}/sample-briefing')
+def account_sample_briefing(account_id: int, db: Session = Depends(get_db)) -> dict:
+    """Bounded stored sample evidence only; never sends a briefing."""
+    from ..services.briefing import sample_briefing
+    return sample_briefing(db, account_id)
