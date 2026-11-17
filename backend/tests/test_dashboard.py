@@ -29,7 +29,7 @@ def client():
 
 
 def _seed(session):
-    account = GmailAccount(email_address="bob@example.com", credentials_json={"token": "x"})
+    account = GmailAccount(email_address="bob@example.com")
     session.add(account)
     session.flush()
     thread = Thread(account_id=account.id, gmail_thread_id="t1", subject="Hello", snippet="snip")
