@@ -92,11 +92,15 @@ def classify_email(
 def classify_unclassified(db, account_id: int, refine=None) -> dict:
     """Backfill classification for stored emails that lack it.
 
-    Returns {"classified": n, "llm_refined": m, "llm_failed": k}. When refine
-    is None the LLM counts are zero. refine, when given, is called with each
-    classified row and may adjust its category/priority (services.refine); it
-    returns "refined"/"kept"/"failed"/"off" and must never raise - the
-    deterministic baseline above always runs first and stands on any failure.
+    Returns exactly {"classified": n, "llm_refined": m, "llm_failed": k}.
+    When refine is given (services.refine.maybe_refine), rows that already
+    have a rule classification but no AI suggestion yet (ai_classified_at
+    NULL) also receive a bounded second-opinion pass, so enabling refinement
+    later still reaches rows ingested or backfilled earlier. refine returns
+    "refined"/"invalid"/"failed"/"off"; both "invalid" (contract-breaking
+    output) and "failed" (transport error) count toward llm_failed here and
+    leave ai_classified_at NULL so the next pass retries them; the finer
+    invalid-vs-failed split is reported by services.refine.refine_pending.
 
     Known limitation: rows ingested before the header-sourcing parser fix
     were stored with only the old whitelisted headers (From/To/Cc/Subject/
@@ -108,18 +112,26 @@ def classify_unclassified(db, account_id: int, refine=None) -> dict:
     from ..models import Email
 
     rows = db.scalars(
-        select(Email).where(Email.account_id == account_id, Email.classified_at.is_(None))
+        select(Email).where(Email.account_id == account_id, Email.classified_at.is_(None)).order_by(Email.id).limit(1000)
     ).all()
 
-    refined = failed = 0
-    for row in rows:
+    total = 0
+    for i, row in enumerate(rows, 1):
+        total += 1
         row.category, row.priority = classify_email(
             headers=row.headers, label_ids=row.label_ids, sender=row.sender, subject=row.subject
         )
         row.classified_at = datetime.utcnow()
-        if refine is not None:
-            outcome = refine(row)
-            refined += outcome == "refined"
-            failed += outcome == "failed"
+        if i % 50 == 0:
+            db.commit()  # chunked: a crash mid-backfill keeps completed work
     db.commit()
-    return {"classified": len(rows), "llm_refined": refined, "llm_failed": failed}
+
+    refined = failed = 0
+    if refine is not None:
+        # Offline/backward-compatible helper only. HTTP classification never
+        # invokes inference; the supported path enqueues sample-only jobs.
+        from .refine import refine_pending
+        counts = refine_pending(db, account_id, limit=25, refine_fn=refine)
+        refined = counts["refined"]
+        failed = counts["invalid"] + counts["failed"]
+    return {"classified": total, "llm_refined": refined, "llm_failed": failed}
