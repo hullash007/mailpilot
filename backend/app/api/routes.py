@@ -41,7 +41,7 @@ def google_login(db: Session = Depends(get_db)) -> JSONResponse:
         oauth_state.sign_state(state),
         max_age=oauth_state.STATE_TTL_SECONDS,
         httponly=True,
-        samesite="lax",
+        samesite="strict",
     )
     return response
 
