@@ -14,11 +14,11 @@ import os
 import secrets
 import threading
 import time
-from urllib.parse import urlsplit
+from urllib.parse import urlsplit, urlencode
 from contextlib import asynccontextmanager
 
 from cryptography.fernet import Fernet
-from fastapi import Depends, FastAPI, HTTPException, Request, Path as PathParameter
+from fastapi import Depends, FastAPI, HTTPException, Request, Query, Path as PathParameter
 from fastapi.responses import HTMLResponse, RedirectResponse
 from sqlalchemy import ForeignKey, String, select, update
 from sqlalchemy.orm import Mapped, Session, mapped_column
@@ -28,6 +28,7 @@ from .config import get_settings
 from .database import Base, engine, ensure_schema, get_db
 from .models import GmailAccount, Email, Thread
 from .services import oauth_state
+from .services import inbox as stored_inbox
 from .services.browser_boundary import BrowserBoundary
 from .services.access import require_same_origin
 from .services.ingestion import ingest_account
@@ -282,7 +283,7 @@ def esc(value):
 
 def page(body):
     return HTMLResponse('''<!doctype html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>MailPilot</title><style>
-body{font:16px/1.5 system-ui,sans-serif;margin:0;background:#f4f6f9;color:#17223b}header{background:#163f85;color:white;padding:18px 6%}main{max-width:900px;margin:32px auto;padding:0 20px}a{color:#163f85}.button,button{font:inherit;display:inline-block;background:#163f85;color:white;padding:11px 17px;border:0;border-radius:7px;text-decoration:none;cursor:pointer}.notice{background:#fff8df;border:1px solid #eadb99;padding:14px;border-radius:8px}.card{padding:18px;margin:16px 0;background:white;border:1px solid #dce2eb;border-radius:10px;overflow-wrap:anywhere}pre{font:inherit;white-space:pre-wrap;overflow-wrap:anywhere}nav{display:flex;gap:18px;align-items:center;flex-wrap:wrap;margin:20px 0}small{color:#53617a}h1{font-size:24px}form{display:inline}</style></head><body><header><strong>MailPilot</strong> - read-only Gmail workspace</header><main>''' + body + '</main></body></html>')
+body{font:16px/1.5 system-ui,sans-serif;margin:0;background:#f4f6f9;color:#17223b}header{background:#163f85;color:white;padding:18px 6%}main{max-width:900px;margin:32px auto;padding:0 20px}a{color:#163f85}.button,button{font:inherit;display:inline-block;background:#163f85;color:white;padding:11px 17px;border:0;border-radius:7px;text-decoration:none;cursor:pointer}.notice{background:#fff8df;border:1px solid #eadb99;padding:14px;border-radius:8px}.card{padding:18px;margin:16px 0;background:white;border:1px solid #dce2eb;border-radius:10px;overflow-wrap:anywhere}pre{font:inherit;white-space:pre-wrap;overflow-wrap:anywhere}nav{display:flex;gap:18px;align-items:center;flex-wrap:wrap;margin:20px 0}small{color:#53617a}h1{font-size:24px}form{display:inline}.filters{display:flex;flex-wrap:wrap;gap:14px;align-items:end;background:white;border:1px solid #dce2eb;padding:18px;border-radius:10px}.filters label{display:flex;flex-direction:column;gap:5px;font-size:14px}.filters input:not([type=hidden]),.filters select{font:inherit;max-width:100%;box-sizing:border-box;padding:9px;border:1px solid #a8b5c9;border-radius:5px}.filters label:first-child{flex:1;min-width:220px}</style></head><body><header><strong>MailPilot</strong> - read-only Gmail workspace</header><main>''' + body + '</main></body></html>')
 
 
 @asynccontextmanager
@@ -349,15 +350,35 @@ def create_app():
         return response
 
     @app.get('/app')
-    def inbox(request: Request, account: GmailAccount = Depends(own_account), db: Session = Depends(get_db)):
-        rows = db.scalars(select(Email).where(Email.account_id == account.id).order_by(Email.id.desc()).limit(51)).all()
+    def inbox(request: Request, q: str = Query(default='', max_length=200),
+              category: str = '', priority: str = '',
+              before: int | None = Query(default=None, ge=1, le=9223372036854775807),
+              limit: int = Query(default=25, ge=1, le=50),
+              account: GmailAccount = Depends(own_account), db: Session = Depends(get_db)):
+        data = stored_inbox.inbox(db, account.id, query=q, category=category,
+                                  priority=priority, before=before, limit=limit)
         body = '<h1>Your stored inbox</h1><p>Signed in as ' + esc(account.email_address) + '</p><p class="notice">Stored mail only, not a live or complete inbox. Sync is manual and bounded to five recent messages. Real-mail AI is off. No mail changes.</p><nav><form method="post" action="/app/sync"><button>Import up to 5 recent messages</button></form><form method="post" action="/logout"><button>Sign out</button></form></nav>'
-        if not rows:
-            body += '<p>No messages imported yet.</p>'
-        for row in rows[:50]:
-            body += '<article class="card"><h2><a href="/app/messages/' + str(row.id) + '">' + esc(row.subject or '(no subject)') + '</a></h2><p>' + esc(row.sender) + '</p><p>' + esc(html.unescape((row.snippet or '')[:1000])) + '</p><small>Stored classification: ' + esc(row.category) + ' / ' + esc(row.priority) + ' (rules)</small></article>'
-        if len(rows) > 50:
-            body += '<p>Only the latest 50 stored records are shown.</p>'
+        body += '<form class="filters" method="get" action="/app"><label>Search stored subject, sender or snippet<input name="q" maxlength="200" value="' + esc(q) + '" placeholder="Literal search"></label>'
+        for name, current, values in [('category', category, sorted(stored_inbox.CATEGORIES)), ('priority', priority, sorted(stored_inbox.PRIORITIES))]:
+            body += '<label>' + name.capitalize() + '<select name="' + name + '"><option value="">All</option>'
+            for value in values:
+                body += '<option value="' + value + '"' + (' selected' if value == current else '') + '>' + value.capitalize() + '</option>'
+            body += '</select></label>'
+        body += '<input type="hidden" name="limit" value="' + str(limit) + '"><button>Apply filters</button><a href="/app">Reset</a></form>'
+        body += '<p><small>Newest additions to stored mail come first, not the newest email dates. Search matches the exact text you type in stored subjects, senders and previews, not message bodies or attachments.</small></p><p><small>Changing filters starts at the first page. After importing mail, return to the first page to see new records. Pages can change as stored mail changes.</small></p>'
+        if before is not None:
+            first = '/app?' + urlencode(dict(q=q, category=category, priority=priority, limit=limit))
+            body += '<p><a href="' + esc(first) + '">Return to first page</a></p>'
+        if not data['messages']:
+            body += '<p>No stored messages match this page and these filters.</p>'
+        for row in data['messages']:
+            body += '<article class="card"><h2><a href="/app/messages/' + str(row['id']) + '">' + esc(row['subject'] or '(no subject)') + '</a></h2><p>' + esc(row['sender']) + '</p><p>' + esc(html.unescape(row['snippet'])) + '</p><small>Stored classification: ' + esc(row['category']) + ' / ' + esc(row['priority']) + ' (rules)</small>'
+            if row['snippet_truncated']:
+                body += '<p><small>Snippet preview truncated at 1000 characters; search covers the full stored snippet.</small></p>'
+            body += '</article>'
+        if data['next_before'] is not None:
+            older = '/app?' + urlencode(dict(q=q, category=category, priority=priority, limit=limit, before=data['next_before']))
+            body += '<nav><a class="button" href="' + esc(older) + '">Older stored records</a></nav>'
         return page(body)
 
     @app.get('/app/messages/{message_id}')
