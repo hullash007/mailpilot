@@ -1,4 +1,6 @@
-# Hosted access preparation
+# Legacy owner-workspace access preparation
+
+The current hosted pilot instead uses the Google-only entrypoint with no user access key. See [Google-only hosting qualification](GOOGLE-ONLY-HOSTING.md). This document preserves the earlier `app.main:app` owner-key/local preparation; it is not the current hosted sign-in design.
 
 This source includes an owner-login hardening candidate, not a completed public deployment. Do not import a real inbox until the checks below pass. No automatic ingestion or real-mail AI processing is enabled.
 
