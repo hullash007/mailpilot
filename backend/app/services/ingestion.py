@@ -22,7 +22,12 @@ def ingest_account(db: Session, account: GmailAccount, max_results: int = 20) ->
     message_ids = client.list_message_ids(max_results=max_results)
 
     existing = set(
-        db.scalars(select(Email.gmail_message_id).where(Email.gmail_message_id.in_(message_ids))).all()
+        db.scalars(
+            select(Email.gmail_message_id).where(
+                Email.account_id == account.id,
+                Email.gmail_message_id.in_(message_ids),
+            )
+        ).all()
     ) if message_ids else set()
 
     stored = 0
@@ -56,6 +61,7 @@ def ingest_account(db: Session, account: GmailAccount, max_results: int = 20) ->
         db.add(
             Email(
                 thread_id=thread.id,
+                account_id=account.id,
                 gmail_message_id=parsed["gmail_message_id"],
                 subject=parsed["subject"],
                 sender=parsed["sender"],
