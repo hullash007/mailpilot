@@ -11,6 +11,8 @@ from app.database import Base, get_db
 
 @pytest.fixture(autouse=True)
 def _clear():
+    from app.api.access_routes import _attempts
+    _attempts.clear()
     get_settings.cache_clear()
     yield
     get_settings.cache_clear()
@@ -48,7 +50,7 @@ def test_access_form_sets_cookie(client, monkeypatch):
     monkeypatch.setenv("APP_ACCESS_TOKEN", "sekret")
     get_settings.cache_clear()
     resp = client.post("/access", data={"token": "sekret"}, follow_redirects=False)
-    assert resp.status_code == 200
+    assert resp.status_code == 303
     assert client.get("/emails").status_code == 200  # cookie now present
 
 
