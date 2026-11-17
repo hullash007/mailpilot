@@ -8,6 +8,8 @@ from app.config import get_settings
 from app.services import refine as refine_mod
 from app.services.refine import maybe_refine, parse_refinement, refine_one
 
+TEST_KEY = __import__("cryptography.fernet", fromlist=["Fernet"]).Fernet.generate_key().decode()
+
 
 class StubProvider:
     def __init__(self, output=None, exc=None):
@@ -30,10 +32,15 @@ class FakeEmail:
         self.snippet = "thanks for your order"
         self.category = "receipt"
         self.priority = "normal"
+        self.classification_source = "rules"
+        self.ai_category = ""
+        self.ai_priority = ""
+        self.ai_classified_at = None
 
 
 @pytest.fixture(autouse=True)
 def _env(monkeypatch):
+    monkeypatch.setenv("TOKEN_ENCRYPTION_KEY", TEST_KEY)
     monkeypatch.setenv("LLM_REFINE", "1")
     monkeypatch.setenv("LLM_BASE_URL", "http://127.0.0.1:9/v1")  # nothing listens
     monkeypatch.setenv("LLM_MODEL", "stub")
@@ -44,29 +51,28 @@ def _env(monkeypatch):
 
 def test_parse_valid():
     assert parse_refinement('{"category": "newsletter", "priority": "low"}') == ("newsletter", "low")
-
-
-def test_parse_surrounding_prose_still_validates():
-    assert parse_refinement('Sure! {"category": "social", "priority": "low"} hope this helps') == (
-        "social", "low")
+    assert parse_refinement('  {"category": "social", "priority": "low"}\n') == ("social", "low")
 
 
 @pytest.mark.parametrize("bad", [
     "",
     "no json here",
+    'Sure! {"category": "social", "priority": "low"} hope this helps',  # prose wrapper
+    '```json\n{"category": "social", "priority": "low"}\n```',          # code fence
     '{"category": "invoice", "priority": "low"}',          # out-of-vocabulary category
     '{"category": "receipt", "priority": "critical"}',      # out-of-vocabulary priority
     '{"category": "receipt"}',                              # missing key
     '{"category": "receipt", "priority": "low", "x": 1}',   # extra key
-    '{"category": "receipt", "priority": "low"} {"a": 1}',  # ambiguous second object is ignored
+    '{"category": "receipt", "priority": "low"} {"category": "social", "priority": "low"}',  # ambiguous second object
+    '{"category": "receipt", "category": "social", "priority": "low"}',   # duplicate key
+    '{"category": {"x": "receipt"}, "priority": "low"}',                  # nested object value
+    '[{"category": "receipt", "priority": "low"}]',                       # array wrapper
+    '{"category": ["receipt"], "priority": "low"}',                       # array value
+    '{"category": "receipt", "priority": "low"},',                        # trailing junk
+    '{"category": "receipt", "priority": null}',                           # non-string value
 ])
 def test_parse_rejects_deviations(bad):
-    # the two-object case resolves to the first; ensure it is still a valid pair or None
-    out = parse_refinement(bad)
-    if bad.endswith('{"a": 1}'):
-        assert out == ("receipt", "low")
-    else:
-        assert out is None
+    assert parse_refinement(bad) is None
 
 
 def test_injected_email_text_cannot_change_vocabulary():
@@ -82,19 +88,23 @@ def test_refine_one_returns_pair_on_valid_output():
                       rule_category="personal", rule_priority="normal") == ("newsletter", "low")
 
 
-def test_maybe_refine_applies_valid(monkeypatch):
+def test_maybe_refine_applies_valid_to_separate_columns(monkeypatch):
     monkeypatch.setattr(refine_mod, "get_provider",
                         lambda: StubProvider('{"category": "notification", "priority": "high"}'))
     e = FakeEmail()
     assert maybe_refine(e) == "refined"
-    assert (e.category, e.priority) == ("notification", "high")
+    # suggestion stored separately; authoritative rule columns untouched
+    assert (e.ai_category, e.ai_priority) == ("notification", "high")
+    assert e.ai_classified_at is not None
+    assert (e.category, e.priority, e.classification_source) == ("receipt", "normal", "rules")
 
 
 def test_maybe_refine_keeps_rules_on_garbage(monkeypatch):
     monkeypatch.setattr(refine_mod, "get_provider", lambda: StubProvider("I think it is a receipt"))
     e = FakeEmail()
-    assert maybe_refine(e) == "kept"
+    assert maybe_refine(e) == "invalid"
     assert (e.category, e.priority) == ("receipt", "normal")
+    assert e.ai_classified_at is None  # retryable
 
 
 def test_maybe_refine_fails_closed_on_transport_error(monkeypatch):
@@ -124,6 +134,85 @@ def test_prompt_bounds_untrusted_text():
     assert p.calls == 1
 
 
+def _seed_classified(db, account_id):
+    from app.models import Email, GmailAccount, Thread
+    from app.services.classify import classify_unclassified
+
+    account = GmailAccount(email_address="refine@example.com")
+    account.credentials = {"token": "t"}
+    db.add(account)
+    db.commit()
+    thread = Thread(account_id=account.id, gmail_thread_id="rt1", subject="s", snippet="s")
+    db.add(thread)
+    db.commit()
+    db.add(Email(thread_id=thread.id, account_id=account.id, gmail_message_id="rm1",
+                 subject="Weekend trek plan", sender="rahul@friend.example", recipients="me@example.com",
+                 snippet="are we still on?", body_text="b", headers={"From": "rahul@friend.example"},
+                 label_ids=["INBOX"]))
+    db.commit()
+    assert classify_unclassified(db, account.id)["classified"] == 1
+    return account
+
+
+def test_refine_pending_reaches_already_classified_rows(tmp_path, monkeypatch):
+    """Rows backfilled BEFORE refinement was enabled must still get a second
+    opinion: selection keys on ai_classified_at, not classified_at."""
+    from sqlalchemy import create_engine
+    from sqlalchemy.orm import sessionmaker
+
+    from app.database import Base
+    from app.models import Email
+    from app.services.refine import refine_pending
+
+    engine = create_engine(f"sqlite:///{tmp_path}/r.db")
+    Base.metadata.create_all(engine)
+    db = sessionmaker(bind=engine)()
+    account = _seed_classified(db, 1)
+
+    monkeypatch.setenv("TOKEN_ENCRYPTION_KEY", TEST_KEY)
+    get_settings.cache_clear()
+    monkeypatch.setattr(refine_mod, "get_provider",
+                        lambda: StubProvider('{"category": "personal", "priority": "normal"}'))
+    out = refine_pending(db, account.id, limit=10)
+    assert out == {"processed": 1, "refined": 1, "invalid": 0, "failed": 0, "off": 0}
+
+    row = db.query(Email).filter_by(gmail_message_id="rm1").one()
+    assert row.ai_category == "personal" and row.ai_classified_at is not None
+    assert (row.category, row.classification_source) == ("personal", "rules")
+
+    # second pass: nothing pending
+    assert refine_pending(db, account.id, limit=10)["processed"] == 0
+
+
+def test_refine_pending_counts_failures(tmp_path, monkeypatch):
+    from sqlalchemy import create_engine
+    from sqlalchemy.orm import sessionmaker
+
+    from app.database import Base
+    from app.models import Email
+    from app.services.refine import refine_pending
+
+    engine = create_engine(f"sqlite:///{tmp_path}/r2.db")
+    Base.metadata.create_all(engine)
+    db = sessionmaker(bind=engine)()
+    account = _seed_classified(db, 1)
+
+    monkeypatch.setenv("TOKEN_ENCRYPTION_KEY", TEST_KEY)
+    get_settings.cache_clear()
+    monkeypatch.setattr(refine_mod, "get_provider",
+                        lambda: StubProvider(exc=ConnectionError("down")))
+    out = refine_pending(db, account.id, limit=10)
+    assert out == {"processed": 1, "refined": 0, "invalid": 0, "failed": 1, "off": 0}
+    row = db.query(Email).filter_by(gmail_message_id="rm1").one()
+    assert row.ai_category == "" and row.ai_classified_at is None
+    # failed rows are retried on the next pass (ai_classified_at still NULL)
+    monkeypatch.setattr(refine_mod, "get_provider",
+                        lambda: StubProvider('{"category": "personal", "priority": "normal"}'))
+    row.ai_next_attempt_at = None  # simulate the backoff period elapsing
+    db.commit()
+    assert refine_pending(db, account.id, limit=10)["refined"] == 1
+
+
 def test_endpoint_quality_synthetic_only():
     """Real-endpoint quality probe; runs only when MAILPILOT_TEST_LLM_URL is set.
 
@@ -144,10 +233,13 @@ def test_endpoint_quality_synthetic_only():
         ("Security alert: new sign-in", "no-reply@accounts.example", [], "A new sign-in was detected", "notification", "high"),
     ]
     outcomes = []
-    for subject, sender, label_hints, snippet, rc, rp in cases:
+    for subject, sender, label_hints, snippet, want_cat, want_prio in cases:
         out = refine_one(provider, subject=subject, sender=sender, labels=label_hints,
-                         snippet=snippet, rule_category=rc, rule_priority=rp)
-        outcomes.append((subject[:25], rc, rp, out))
+                         snippet=snippet, rule_category=want_cat, rule_priority=want_prio)
+        outcomes.append((subject[:25], (want_cat, want_prio), out))
     for o in outcomes:
         print(o)
-    assert all(o[3] is not None for o in outcomes), "endpoint returned no valid refinement"
+    # small-n accuracy assertion, not a smoke check: every case must return a
+    # contract-valid suggestion AND agree with the expected (category, priority)
+    for subject, want, got in outcomes:
+        assert got == want, f"{subject}: expected {want}, got {got}"
