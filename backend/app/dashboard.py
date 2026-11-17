@@ -167,7 +167,7 @@ def dashboard(db: Session = Depends(get_db)) -> HTMLResponse:
             continue
         if sample_count:
             links.append(f'<a href="/dashboard/accounts/{account_id}/sample-briefing">Sample evidence inventory - account {account_id}</a>')
-    nav='<nav aria-label="Sample evidence">'+ ' | '.join(links)+'</nav>' if links else ''
+    nav='<nav aria-label="Stored inbox"><a href="/inbox">Browse stored inbox by account</a></nav>'+('<nav aria-label="Sample evidence">'+ ' | '.join(links)+'</nav>' if links else '')
     banner = _BANNER if any(getattr(e, "is_sample", False) for e in rows) else ""
     html = (
         _PAGE.replace("__EMAIL_COUNT__", str(email_count))
