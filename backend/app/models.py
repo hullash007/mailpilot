@@ -90,6 +90,21 @@ class Email(Base):
     category: Mapped[str] = mapped_column(String(32), default="", index=True)
     priority: Mapped[str] = mapped_column(String(16), default="", index=True)
     classified_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
+    # Phase 3: LLM second-opinion suggestions, stored SEPARATELY so the
+    # deterministic rule columns above stay authoritative (services/refine.py).
+    ai_category: Mapped[str] = mapped_column(String(32), default="")
+    ai_priority: Mapped[str] = mapped_column(String(16), default="")
+    ai_classified_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
+    # Provenance of the authoritative category/priority: "rules" or
+    # "user_confirmed" (a user accepting an AI suggestion, future UI action).
+    classification_source: Mapped[str] = mapped_column(String(16), default="rules")
+    # Independent, persistent AI job state. No mailbox effects.
+    ai_status: Mapped[str] = mapped_column(String(16), default="none", index=True)
+    ai_attempts: Mapped[int] = mapped_column(default=0)
+    ai_attempted_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
+    ai_next_attempt_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
+    ai_model: Mapped[str] = mapped_column(String(128), default="")
+    ai_prompt_version: Mapped[str] = mapped_column(String(32), default="")
     ingested_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
 
     thread: Mapped[Thread] = relationship(back_populates="emails")
