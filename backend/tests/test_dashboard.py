@@ -38,6 +38,7 @@ def _seed(session):
     session.add(
         Email(
             thread_id=thread.id,
+            account_id=account.id,
             gmail_message_id="m1",
             subject="Interview <script>alert(1)</script>",
             sender="Recruiter <jobs@example.com>",
