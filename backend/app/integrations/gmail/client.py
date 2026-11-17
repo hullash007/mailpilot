@@ -11,7 +11,13 @@ from datetime import datetime, timezone
 from google.oauth2.credentials import Credentials
 from googleapiclient.discovery import build
 
-_HEADER_KEYS = ("From", "To", "Cc", "Subject", "Date", "Message-ID")
+_HEADER_KEYS = (
+    "From", "To", "Cc", "Subject", "Date", "Message-ID",
+    # Classification signals (services/classify.py) - dropped here before the
+    # fix, which made real ingestion unable to classify.
+    "List-Unsubscribe", "Precedence", "Auto-Submitted",
+)
+_HEADER_KEYS_BY_LOWER = {key.lower(): key for key in _HEADER_KEYS}
 
 
 def _b64url_decode(data: str) -> str:
@@ -20,11 +26,13 @@ def _b64url_decode(data: str) -> str:
 
 
 def extract_headers(payload: dict) -> dict:
+    # Gmail header names arrive in arbitrary case; match case-insensitively
+    # and store under the canonical key so downstream .get("From") works.
     headers = {}
     for h in payload.get("headers", []):
-        name = h.get("name", "")
-        if name in _HEADER_KEYS:
-            headers[name] = h.get("value", "")
+        canonical = _HEADER_KEYS_BY_LOWER.get(str(h.get("name", "")).lower())
+        if canonical:
+            headers[canonical] = h.get("value", "")
     return headers
 
 
