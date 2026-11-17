@@ -5,6 +5,7 @@ from fastapi import FastAPI
 
 from .api.access_routes import router as access_router
 from .api.routes import router
+from .thread_dashboard import router as thread_dashboard_router
 from .dashboard import router as dashboard_router
 from .database import Base, engine, ensure_schema
 from . import models  # noqa: F401 - register models before create_all
@@ -25,6 +26,7 @@ def create_app() -> FastAPI:
     app.include_router(access_router)
     app.include_router(router)
     app.include_router(dashboard_router)
+    app.include_router(thread_dashboard_router)
     return app
 
 
