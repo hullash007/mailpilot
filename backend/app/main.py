@@ -6,15 +6,17 @@ from fastapi import FastAPI
 from .api.access_routes import router as access_router
 from .api.routes import router
 from .dashboard import router as dashboard_router
-from .database import Base, engine
+from .database import Base, engine, ensure_schema
 from . import models  # noqa: F401 - register models before create_all
 
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    # Phase 1 scaffold: auto-create tables on startup. Alembic migrations
+    # Phase 1/2 scaffold: auto-create tables on startup, then idempotently
+    # upgrade older tables (create_all never alters them). Alembic migrations
     # replace this once the schema stabilizes.
     Base.metadata.create_all(bind=engine)
+    ensure_schema(engine)
     yield
 
 
