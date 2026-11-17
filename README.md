@@ -68,5 +68,8 @@ account, and `POST /ingest/{account_id}` to pull mail into PostgreSQL.
 6. Executive assistant (daily briefings, analytics)
 
 Security notes: emails are untrusted input; a deterministic policy engine -
-not the LLM - authorizes actions. OAuth tokens are stored per account;
-encrypt-at-rest hardening is scheduled before any write scopes are added.
+not the LLM - authorizes actions. OAuth login state is stored server-side,
+expires after 10 minutes, is single-use, and is bound to the initiating
+browser with an HMAC-signed HttpOnly cookie (OAUTH_STATE_SECRET). OAuth
+tokens are stored per account; encrypt-at-rest hardening is scheduled before
+any write scopes are added.
