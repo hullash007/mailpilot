@@ -57,3 +57,18 @@ def test_ingest_stores_and_dedupes(db):
 
     assert len(db.scalars(select(Email)).all()) == 3
     assert len(db.scalars(select(Thread)).all()) == 2
+
+
+def test_same_message_id_ingested_per_account(db):
+    """Two connected accounts can each hold the same Gmail message ID."""
+    first = GmailAccount(email_address="one@example.com")
+    second = GmailAccount(email_address="two@example.com")
+    db.add_all([first, second])
+    db.commit()
+
+    ingestion.ingest_account(db, first)
+    result = ingestion.ingest_account(db, second)
+    assert result["stored"] == 3  # not skipped as global duplicates
+    assert db.query(Email).count() == 6
+    assert db.query(Email).filter(Email.account_id == first.id).count() == 3
+    assert db.query(Email).filter(Email.account_id == second.id).count() == 3
