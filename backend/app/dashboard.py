@@ -50,6 +50,25 @@ _PAGE = """<!DOCTYPE html>
   .empty { background: #fff; border: 1px dashed #c8cdd4; border-radius: 10px;
            padding: 40px; text-align: center; color: #5b6470; }
   .empty code { background: #eef0f3; padding: 2px 6px; border-radius: 4px; }
+  .banner { background: #fff7e0; border: 1px solid #f0d98c; color: #6b5300;
+            border-radius: 10px; padding: 10px 16px; margin: 16px 24px 0;
+            font-size: 13px; }
+  .label.sample { background: #fde8e8; color: #8f1d1d; font-weight: 700; }
+  td, th { overflow-wrap: anywhere; }
+  @media (max-width: 640px) {
+    header { padding: 12px 16px; flex-wrap: wrap; }
+    .stats { padding: 12px 16px 0; }
+    .stat { min-width: 0; flex: 1 1 40%; padding: 10px 12px; }
+    main { padding: 12px 12px 32px; }
+    .banner { margin: 12px 12px 0; }
+    table, thead, tbody, tr, td { display: block; width: 100%; }
+    thead { position: absolute; left: -9999px; }
+    table { border: none; background: transparent; }
+    tr { background: #fff; border: 1px solid #e2e5ea; border-radius: 10px;
+         margin-bottom: 10px; padding: 4px 0; }
+    td { border-bottom: none; padding: 6px 14px; font-size: 14px; }
+    td.date { color: #5b6470; font-size: 12px; padding-top: 0; }
+  }
 </style>
 </head>
 <body>
@@ -58,6 +77,7 @@ _PAGE = """<!DOCTYPE html>
   <div class="stat"><b>__EMAIL_COUNT__</b><span>emails stored</span></div>
   <div class="stat"><b>__THREAD_COUNT__</b><span>threads</span></div>
 </section>
+__BANNER__
 <main>
 __BODY__
 </main>
@@ -66,11 +86,15 @@ __BODY__
 """
 
 _ROW = """<tr>
-  <td class="sender">{sender}</td>
+  <td class="sender">{sender}{sample_badge}</td>
   <td><div>{subject}</div><div class="snippet">{snippet}</div>
       <div class="labels">{labels}</div></td>
-  <td>{date}</td>
+  <td class="date">{date}</td>
 </tr>"""
+
+_SAMPLE_BADGE = ' <span class="label sample">SAMPLE</span>'
+_BANNER = ('<div class="banner">Showing sample data - this is not connected to '
+           'a real inbox.</div>')
 
 _EMPTY = """<div class="empty">
 <p>No emails stored yet.</p>
@@ -99,6 +123,7 @@ def dashboard(db: Session = Depends(get_db)) -> HTMLResponse:
     if rows:
         body_rows = "".join(
             _ROW.format(
+                sample_badge=_SAMPLE_BADGE if getattr(e, "is_sample", False) else "",
                 sender=_esc(e.sender),
                 subject=_esc(e.subject) or "(no subject)",
                 snippet=_esc(e.snippet),
@@ -115,9 +140,11 @@ def dashboard(db: Session = Depends(get_db)) -> HTMLResponse:
         )
     else:
         body = _EMPTY
+    banner = _BANNER if any(getattr(e, "is_sample", False) for e in rows) else ""
     html = (
         _PAGE.replace("__EMAIL_COUNT__", str(email_count))
         .replace("__THREAD_COUNT__", str(thread_count))
+        .replace("__BANNER__", banner)
         .replace("__BODY__", body)
     )
     return HTMLResponse(html)
