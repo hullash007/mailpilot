@@ -28,16 +28,23 @@ def build_flow(state: str | None = None) -> Flow:
     return flow
 
 
-def authorization_url() -> tuple[str, str]:
-    """Return (url, state). The caller must keep `state` to verify the callback."""
+def authorization_url() -> tuple[str, str, str]:
+    """Return (url, state, code_verifier).
+
+    The library generates a PKCE code_verifier per flow instance and sends its
+    challenge in the URL. The verifier must survive until the callback (a new
+    flow instance there cannot regenerate it), so the caller stores it
+    server-side with the state and passes it to exchange_code.
+    """
     flow = build_flow()
     url, state = flow.authorization_url(access_type="offline", prompt="consent")
-    return url, state
+    return url, state, flow.code_verifier
 
 
-def exchange_code(code: str, state: str | None = None) -> dict:
+def exchange_code(code: str, state: str | None = None, code_verifier: str | None = None) -> dict:
     """Trade an authorization code for tokens. Returns a plain credential dict."""
     flow = build_flow(state=state)
+    flow.code_verifier = code_verifier
     flow.fetch_token(code=code)
     creds = flow.credentials
     return {
