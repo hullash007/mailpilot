@@ -9,6 +9,8 @@ class Settings(BaseSettings):
 
     google_client_id: str = ""
     google_client_secret: str = ""
+    # When set, refuse OAuth callbacks for any other Gmail identity.
+    google_allowed_email: str = ""
     google_redirect_uri: str = "http://localhost:8000/auth/google/callback"
     database_url: str = "postgresql+psycopg2://mailpilot:mailpilot@localhost:5432/mailpilot"
     # Signs the cookie that binds OAuth state to the initiating browser.
@@ -28,6 +30,8 @@ class Settings(BaseSettings):
     # Set for any remote/VM exposure; then serve over HTTPS with cookie_secure.
     app_access_token: str = ""
     cookie_secure: bool = False
+    # Exact external origin, required by hosted-mode same-origin write checks.
+    public_origin: str = ""
 
     # Phase 1 is read-only by design.
     gmail_scopes: list[str] = ["https://www.googleapis.com/auth/gmail.readonly"]
