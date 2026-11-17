@@ -16,7 +16,7 @@ _FORM = """<!DOCTYPE html>
 <h1 style="font-size:18px">MailPilot access</h1>
 <form method="post" action="/access">
 <input type="password" name="token" placeholder="Access token" autofocus
- style="width:100%%;padding:8px;margin-bottom:8px">
+ style="width:100%;padding:8px;margin-bottom:8px">
 <button type="submit" style="padding:8px 16px">Continue</button>
 </form></body></html>"""
 
@@ -36,7 +36,7 @@ def access_login(response: Response, token: str = Form(...)):
         COOKIE_NAME,
         token,
         httponly=True,
-        samesite="lax",
+        samesite="strict",
         secure=get_settings().cookie_secure,
         max_age=7 * 24 * 3600,
     )
