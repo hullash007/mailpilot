@@ -30,6 +30,14 @@ class GmailAccount(Base):
     threads: Mapped[list["Thread"]] = relationship(back_populates="account", cascade="all, delete-orphan")
 
 
+class OAuthState(Base):
+    __tablename__ = "oauth_states"
+
+    state: Mapped[str] = mapped_column(String(128), primary_key=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
+    expires_at: Mapped[datetime] = mapped_column(DateTime)
+
+
 class Thread(Base):
     __tablename__ = "threads"
     __table_args__ = (UniqueConstraint("account_id", "gmail_thread_id", name="uq_thread_account_gmailid"),)
