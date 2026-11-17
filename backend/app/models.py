@@ -11,6 +11,7 @@ from sqlalchemy.types import JSON
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from .database import Base
+from .services.crypto import decrypt_tokens, encrypt_tokens
 
 JSONType = JSON().with_variant(JSONB(), "postgresql")
 
@@ -21,13 +22,21 @@ class GmailAccount(Base):
     id: Mapped[int] = mapped_column(primary_key=True)
     email_address: Mapped[str] = mapped_column(String(320), unique=True, index=True)
     google_user_id: Mapped[str | None] = mapped_column(String(64), nullable=True)
-    # OAuth token payload (access/refresh token, expiry). Encrypt at rest
-    # before any write scopes are introduced.
-    credentials_json: Mapped[dict] = mapped_column(JSONType, default=dict)
+    # OAuth token payload (access/refresh token, expiry), Fernet-encrypted
+    # at rest. Use the `credentials` property; never the column directly.
+    credentials_blob: Mapped[str] = mapped_column(Text, default="")
     history_id: Mapped[str | None] = mapped_column(String(32), nullable=True)
     created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
 
     threads: Mapped[list["Thread"]] = relationship(back_populates="account", cascade="all, delete-orphan")
+
+    @property
+    def credentials(self) -> dict:
+        return decrypt_tokens(self.credentials_blob) if self.credentials_blob else {}
+
+    @credentials.setter
+    def credentials(self, value: dict) -> None:
+        self.credentials_blob = encrypt_tokens(value)
 
 
 class OAuthState(Base):
@@ -67,6 +76,8 @@ class Email(Base):
     headers: Mapped[dict] = mapped_column(JSONType, default=dict)
     label_ids: Mapped[list] = mapped_column(JSONType, default=list)
     internal_date: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
+    # True for seeded demo data - the dashboard labels it, never as real mail.
+    is_sample: Mapped[bool] = mapped_column(default=False)
     ingested_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
 
     thread: Mapped[Thread] = relationship(back_populates="emails")
