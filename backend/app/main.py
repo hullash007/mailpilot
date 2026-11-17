@@ -2,6 +2,10 @@
 from contextlib import asynccontextmanager
 
 from fastapi import FastAPI
+from urllib.parse import urlsplit
+
+from .config import get_settings
+from .services.browser_boundary import BrowserBoundary
 
 from .api.access_routes import router as access_router
 from .api.routes import router
@@ -24,7 +28,18 @@ async def lifespan(app: FastAPI):
 
 
 def create_app() -> FastAPI:
-    app = FastAPI(title="MailPilot", version="0.1.0", lifespan=lifespan)
+    settings = get_settings()
+    if settings.public_origin:
+        origin = urlsplit(settings.public_origin)
+        if (origin.scheme != "https" or not origin.hostname or origin.username or origin.password
+                or origin.path or origin.query or origin.fragment
+                or not settings.cookie_secure or len(settings.app_access_token) < 32):
+            raise RuntimeError("Hosted mode needs exact HTTPS PUBLIC_ORIGIN, COOKIE_SECURE=1 and an access key of at least 32 characters.")
+    app = FastAPI(title="MailPilot", version="0.1.0", lifespan=lifespan,
+                  docs_url=None if settings.public_origin else "/docs",
+                  redoc_url=None if settings.public_origin else "/redoc",
+                  openapi_url=None if settings.public_origin else "/openapi.json")
+    app.add_middleware(BrowserBoundary)
     app.include_router(access_router)
     app.include_router(router)
     app.include_router(dashboard_router)
