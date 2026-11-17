@@ -11,9 +11,10 @@ from ..integrations.gmail.client import GmailClient
 from ..models import Email, GmailAccount, Thread
 from ..services.ingestion import ingest_account
 from ..services import oauth_state
+from ..services.access import require_access
 from ..services.crypto import TokenEncryptionError
 
-router = APIRouter()
+router = APIRouter(dependencies=[Depends(require_access)])
 
 
 @router.get("/health")
