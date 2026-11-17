@@ -132,7 +132,7 @@ def dashboard(db: Session = Depends(get_db)) -> HTMLResponse:
             _ROW.format(
                 sample_badge=_SAMPLE_BADGE if getattr(e, "is_sample", False) else "",
                 sender=_esc(e.sender),
-                subject=_esc(e.subject) or "(no subject)",
+                subject=('<a href="/dashboard/accounts/'+str(e.account_id)+'/threads/'+str(e.thread_id)+'">'+(_esc(e.subject) or '(no subject)')+'</a>') if e.is_sample else (_esc(e.subject) or '(no subject)'),
                 snippet=_esc(e.snippet),
                 class_badges=(
                     (_CAT_BADGE.format(_esc(e.category)) if e.category else "")
