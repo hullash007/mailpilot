@@ -14,6 +14,13 @@ class Settings(BaseSettings):
     # Signs the cookie that binds OAuth state to the initiating browser.
     # Empty = random per process (in-flight logins fail closed on restart).
     oauth_state_secret: str = ""
+    # Fernet key encrypting stored OAuth tokens. Required before connecting
+    # any Gmail account; empty = token storage fails closed.
+    token_encryption_key: str = ""
+    # OpenAI-compatible LLM endpoint (private VM / tunnel only) - Phase 2.
+    llm_base_url: str = ""
+    llm_model: str = ""
+    llm_api_key: str = ""
 
     # Phase 1 is read-only by design.
     gmail_scopes: list[str] = ["https://www.googleapis.com/auth/gmail.readonly"]
