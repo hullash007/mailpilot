@@ -13,7 +13,7 @@ HIGHLIGHTS_PER_THREAD=2
 CANDIDATES_PER_THREAD=5
 
 
-def sample_briefing(db,account_id):
+def validate_sample_account(db,account_id):
     if db.get(GmailAccount,account_id) is None:
         raise HTTPException(status_code=404,detail='Sample account not found.')
     # Validate entire account and linked-message ownership before limiting.
@@ -24,7 +24,11 @@ def sample_briefing(db,account_id):
             Thread.account_id!=account_id,Thread.id.is_(None)))) or 0
     if unsafe:
         raise HTTPException(status_code=404,detail='Sample account not found.')
-    total_messages=db.scalar(select(func.count(Email.id)).where(Email.account_id==account_id)) or 0
+    return db.scalar(select(func.count(Email.id)).where(Email.account_id==account_id)) or 0
+
+
+def sample_briefing(db,account_id):
+    total_messages=validate_sample_account(db,account_id)
     # Order from actual stored messages, never stale Thread.last_message_at.
     activity=(select(Email.thread_id,func.max(Email.internal_date).label('latest'),
                      func.count(Email.id).label('messages'))
