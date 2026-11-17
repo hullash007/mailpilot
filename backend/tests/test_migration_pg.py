@@ -101,6 +101,8 @@ def test_pg_upgrade_preserves_data_and_adds_columns(old_pg):
     assert row.category == ""
     assert row.is_sample is False
     assert row.classified_at is None
+    assert row.ai_category == ""
+    assert row.classification_source == "rules"
 
     assert classify_unclassified(session, account.id)["classified"] == 1
     assert session.get(Email, row.id).category == "receipt"
