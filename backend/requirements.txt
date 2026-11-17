@@ -1,4 +1,6 @@
 fastapi>=0.110
+# TestClient(client=...) used by access-boundary tests was added in0.44.0.
+starlette>=0.44.0
 uvicorn[standard]>=0.29
 SQLAlchemy>=2.0
 psycopg2-binary>=2.9
