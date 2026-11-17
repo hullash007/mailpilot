@@ -85,7 +85,15 @@ def classify_email(
 
 
 def classify_unclassified(db, account_id: int) -> int:
-    """Backfill classification for stored emails that lack it. Returns count."""
+    """Backfill classification for stored emails that lack it. Returns count.
+
+    Known limitation: rows ingested before the header-sourcing parser fix
+    were stored with only the old whitelisted headers (From/To/Cc/Subject/
+    Date/Message-ID), so backfill can only classify them from subject, sender
+    and labels - List-Unsubscribe/Precedence/Auto-Submitted signals are lost
+    for those rows and are NOT silently re-fetched from Gmail. An explicit
+    re-ingest (future command) is the way to refresh them. Rows already
+    classified (classified_at set) are never re-classified here."""
     from ..models import Email
 
     rows = db.scalars(
