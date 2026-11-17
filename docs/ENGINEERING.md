@@ -227,7 +227,12 @@ No delivery, refresh worker or daily automation is installed by this view.
 
 ### Reproducible test environment
 
-Python 3.10 Linux reference lock:
+Current Python 3.12 Linux reference lock:
+`pip install -r backend/requirements-lock-py312-linux.txt`.
+A clean Python3.12.16 environment passed134 tests with2 optional tests skipped and pip check clean.
+The older Python3.10 reference below is retained for history, not recommended for new deployments because the Google library now warns it is unsupported.
+
+Historical Python 3.10 Linux reference lock:
 `pip install -r backend/requirements-lock-py310-linux.txt`.
 This exact dependency set was resolved into a new empty virtual environment
 and passed 105 tests (two optional integrations skipped), with `pip check`
