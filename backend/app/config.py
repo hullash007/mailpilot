@@ -11,6 +11,9 @@ class Settings(BaseSettings):
     google_client_secret: str = ""
     google_redirect_uri: str = "http://localhost:8000/auth/google/callback"
     database_url: str = "postgresql+psycopg2://mailpilot:mailpilot@localhost:5432/mailpilot"
+    # Signs the cookie that binds OAuth state to the initiating browser.
+    # Empty = random per process (in-flight logins fail closed on restart).
+    oauth_state_secret: str = ""
 
     # Phase 1 is read-only by design.
     gmail_scopes: list[str] = ["https://www.googleapis.com/auth/gmail.readonly"]
