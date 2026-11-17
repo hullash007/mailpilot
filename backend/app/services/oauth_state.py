@@ -34,22 +34,34 @@ def sign_state(state: str) -> str:
     return hmac.new(_signing_key(), state.encode(), sha256).hexdigest()
 
 
-def issue_state(db: Session, state: str) -> None:
-    """Persist a freshly generated state with its expiry; drop expired rows."""
+def issue_state(db: Session, state: str, code_verifier: str) -> None:
+    """Persist a freshly generated state + PKCE verifier with expiry; drop expired rows."""
     db.execute(delete(OAuthState).where(OAuthState.expires_at <= datetime.utcnow()))
-    db.add(OAuthState(state=state, expires_at=datetime.utcnow() + timedelta(seconds=STATE_TTL_SECONDS)))
-    db.commit()
-
-
-def consume_state(db: Session, state: str) -> bool:
-    """Validate and consume a state atomically (single DELETE ... RETURNING).
-    Single-use: the row is deleted on first presentation, so replays, unknown
-    states and expired states all fail, including under concurrent callbacks."""
-    expires_at = db.scalar(
-        delete(OAuthState).where(OAuthState.state == state).returning(OAuthState.expires_at)
+    db.add(
+        OAuthState(
+            state=state,
+            code_verifier=code_verifier,
+            expires_at=datetime.utcnow() + timedelta(seconds=STATE_TTL_SECONDS),
+        )
     )
     db.commit()
-    return expires_at is not None and expires_at > datetime.utcnow()
+
+
+def consume_state(db: Session, state: str) -> str | None:
+    """Validate and consume a state atomically (single DELETE ... RETURNING).
+
+    Returns the stored PKCE code verifier on success, None on failure.
+    Single-use: the row is deleted on first presentation, so replays, unknown
+    states and expired states all fail, including under concurrent callbacks."""
+    row = db.execute(
+        delete(OAuthState)
+        .where(OAuthState.state == state)
+        .returning(OAuthState.code_verifier, OAuthState.expires_at)
+    ).first()
+    db.commit()
+    if row is None or row.expires_at <= datetime.utcnow():
+        return None
+    return row.code_verifier
 
 
 def cookie_matches(cookie_value: str | None, state: str) -> bool:
