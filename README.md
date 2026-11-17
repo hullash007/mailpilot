@@ -29,8 +29,10 @@ Phase 1 is strictly read-only. No sending, deleting, or label changes.
   forums, personal) and a `priority` (high, normal, low) from transparent,
   auditable rules over headers and Gmail labels - no LLM required
 - `POST /classify/{account_id}` backfills older rows (idempotent)
-- LLM-refined classification and summaries arrive once a private model
-  endpoint is configured (LLM_BASE_URL/LLM_MODEL)
+- These categories and priorities are rule-based suggestions only: they never
+  trigger any mail action (Phase 1/2 stays read-only), and the LLM-refined
+  understanding replaces them once a private model endpoint is configured
+  (LLM_BASE_URL/LLM_MODEL)
 
 ## Repository layout
 
