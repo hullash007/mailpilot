@@ -18,7 +18,7 @@ def ingest_account(db: Session, account: GmailAccount, max_results: int = 20) ->
     Returns counts: {"fetched": n, "stored": n, "skipped_duplicates": n}.
     Raises on Gmail/API errors - the caller surfaces the failure.
     """
-    client = GmailClient(account.credentials_json)
+    client = GmailClient(account.credentials)
     message_ids = client.list_message_ids(max_results=max_results)
 
     existing = set(
