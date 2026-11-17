@@ -38,6 +38,7 @@ def test_token_mode_requires_token(client, monkeypatch):
     get_settings.cache_clear()
     assert client.get("/emails").status_code == 401
     assert client.get("/dashboard").status_code == 401
+    assert client.post("/classify/1").status_code == 401  # backfill route is behind the same boundary
     assert client.get("/emails", headers={"Authorization": "Bearer wrong"}).status_code == 401
     assert client.get("/emails", headers={"Authorization": "Bearer sekret"}).status_code == 200
 
