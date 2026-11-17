@@ -91,7 +91,7 @@ def test_ensure_schema_preserves_data_and_adds_columns(old_db):
     assert row.classified_at is None
 
     # Backfill now works on the upgraded table.
-    assert classify_unclassified(session, account.id) == 1
+    assert classify_unclassified(session, account.id)["classified"] == 1
     assert session.get(Email, row.id).category == "receipt"
 
 
