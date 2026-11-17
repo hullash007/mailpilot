@@ -11,7 +11,8 @@ MailPilot turns stored Gmail messages into a searchable inbox, source-linked thr
 | Capability | Current boundary |
 | --- | --- |
 | Gmail OAuth and ingestion | Read-only scope; encrypted OAuth tokens; message deduplication |
-| Stored inbox | Account selector, literal search, category/priority filters, cursor pagination and escaped plain-text detail |
+| Local stored inbox (`app.main`) | Account selector, literal search, category/priority filters, cursor pagination and escaped plain-text detail |
+| Google-only stored inbox (`app.google_main`) | Subject-bound literal search, category/priority filters and older stored-record pages; qualified on the configured owner pilot |
 | Explainable classification | Deterministic header/label rules remain authoritative; no model required |
 | Thread review | Sample-only extractive highlights and literal request/deadline candidates with source offsets, not inferred commitments |
 | Sample briefing | Read-only evidence inventory, with source links and explicit scan limits; no scheduled delivery |
@@ -73,7 +74,7 @@ cd backend
 pytest -q
 ```
 
-The Google-only candidate passed **170 tests, with 2 optional integration tests skipped** on the actual ARM64 Python 3.12.3 host. Optional PostgreSQL integration tests were not run in that qualification. Tests cover ingestion, classification, inbox scoping, source offsets, sample-only gates, worker recovery, strict model parsing and owner-session/Origin/Host boundaries. These are functional tests, not a security audit or a general model-accuracy claim.
+The Google-only inbox revision passed **190 tests, with 2 optional integration tests skipped** on the actual ARM64 Python 3.12.3 host. Optional PostgreSQL integration tests were not run in that qualification. Tests cover ingestion, classification, inbox scoping, source offsets, sample-only gates, worker recovery, strict model parsing and owner-session/Origin/Host boundaries. These are functional tests, not a security audit or a general model-accuracy claim.
 
 Earlier disposable Chromium checks covered synthetic OAuth cookie mechanics. The hosted Google-only pilot was then checked in an actual browser: real Google OpenID identity plus read-only Gmail consent, a five-message same-mailbox migration dry run, atomic subject binding preserving existing mail/ciphertext, flags-off normal sign-in, service-restart session persistence and logout. This is one configured owner, not two-real-account tenant acceptance or a security audit.
 
@@ -82,6 +83,8 @@ Earlier disposable Chromium checks covered synthetic OAuth cookie mechanics. The
 The hosted entrypoint is `app.google_main:app`, separate from the original local development app. It offers a Google sign-in button with no user-entered access key. Only the configured owner is currently enabled. OAuth requests use OpenID identity/email and `gmail.readonly`, never send/delete scopes. Mailbox ownership comes from the verified immutable Google subject, not an address supplied by the browser. Legacy shared account-selector/API routes are absent from this entrypoint. Manual imports are bounded to five recent messages; connecting does not imply a complete or continuously synced inbox.
 
 The one-off migration is disabled by default and was removed after the owner binding. It is not a general email-matching account-claim feature. See [Google-only hosting notes](docs/GOOGLE-ONLY-HOSTING.md) for boundaries and actual qualification.
+
+The hosted inbox adds literal search, category/priority filters and stored-ID pagination to `/app`, deriving the account only from the verified subject. The reviewed revision passed 190 tests with 2 optional skips on the actual ARM64 Python 3.12.3 host, separately reproduced on Python 3.10. Actual owner-session search, filters, older pages and detail were checked after restart without another import; stored mail and mailbox binding stayed unchanged.
 
 ## Connect Gmail locally
 
