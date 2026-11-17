@@ -191,12 +191,12 @@ def test_classify_endpoint_backfills_and_is_idempotent(client):
 
     first = http.post(f"/classify/{account.id}")
     assert first.status_code == 200
-    assert first.json() == {"classified": 1}
+    assert first.json() == {"classified": 1, "llm_refined": 0, "llm_failed": 0}
     row = session.scalar(select(Email).where(Email.gmail_message_id == "old1"))
     assert row.category == "receipt"
 
     second = http.post(f"/classify/{account.id}")
-    assert second.json() == {"classified": 0}
+    assert second.json() == {"classified": 0, "llm_refined": 0, "llm_failed": 0}
 
 
 def test_classify_endpoint_unknown_account(client):
