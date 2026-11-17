@@ -10,7 +10,18 @@ from sqlalchemy.pool import StaticPool
 from app.api import routes
 from app.database import Base, get_db
 from app.models import GmailAccount, OAuthState
+from app.config import get_settings
 from app.services import oauth_state
+
+TEST_KEY = __import__("cryptography.fernet", fromlist=["Fernet"]).Fernet.generate_key().decode()
+
+
+@pytest.fixture(autouse=True)
+def _key(monkeypatch):
+    monkeypatch.setenv("TOKEN_ENCRYPTION_KEY", TEST_KEY)
+    get_settings.cache_clear()
+    yield
+    get_settings.cache_clear()
 
 
 @pytest.fixture()
