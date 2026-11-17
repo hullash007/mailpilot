@@ -10,6 +10,7 @@ import secrets
 from datetime import datetime, timedelta
 from hashlib import sha256
 
+from sqlalchemy import delete
 from sqlalchemy.orm import Session
 
 from ..config import get_settings
@@ -34,20 +35,21 @@ def sign_state(state: str) -> str:
 
 
 def issue_state(db: Session, state: str) -> None:
-    """Persist a freshly generated state with its expiry."""
+    """Persist a freshly generated state with its expiry; drop expired rows."""
+    db.execute(delete(OAuthState).where(OAuthState.expires_at <= datetime.utcnow()))
     db.add(OAuthState(state=state, expires_at=datetime.utcnow() + timedelta(seconds=STATE_TTL_SECONDS)))
     db.commit()
 
 
 def consume_state(db: Session, state: str) -> bool:
-    """Validate and consume a state. Single-use: the row is deleted on first
-    presentation, so replays, unknown states and expired states all fail."""
-    row = db.get(OAuthState, state)
-    if row is None:
-        return False
-    db.delete(row)
+    """Validate and consume a state atomically (single DELETE ... RETURNING).
+    Single-use: the row is deleted on first presentation, so replays, unknown
+    states and expired states all fail, including under concurrent callbacks."""
+    expires_at = db.scalar(
+        delete(OAuthState).where(OAuthState.state == state).returning(OAuthState.expires_at)
+    )
     db.commit()
-    return row.expires_at > datetime.utcnow()
+    return expires_at is not None and expires_at > datetime.utcnow()
 
 
 def cookie_matches(cookie_value: str | None, state: str) -> bool:
