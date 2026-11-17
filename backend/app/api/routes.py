@@ -183,3 +183,10 @@ def list_threads(limit: int = 50, offset: int = 0, db: Session = Depends(get_db)
         }
         for t in rows
     ]
+
+
+@router.get('/accounts/{account_id}/threads/{thread_id}/review')
+def sample_thread_review(account_id: int, thread_id: int, db: Session = Depends(get_db)) -> dict:
+    """Derived literal evidence only; no persistence, LLM or mailbox effects."""
+    from ..services.thread_review import review_thread
+    return review_thread(db, account_id, thread_id)
