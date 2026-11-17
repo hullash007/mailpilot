@@ -196,3 +196,30 @@ HTML from mail is executed. No LLM, network, persistence/migration, mail
 mutation, reminder or autonomous workflow is involved in this review view.
 This is evidence inspection toward Phase2, not contextual AI summarisation,
 full intent/deadline extraction, follow-up tracking or the full product.
+
+## Sample briefing API (evidence inventory only)
+
+`GET /accounts/{account_id}/sample-briefing` composes a bounded read-only
+inventory across sample threads. It never sends or schedules a briefing.
+It returns stored rule-high-priority message counts (not a fresh importance
+judgment), source-linked first-line highlights and unconfirmed phrase
+candidates from the sample thread review. No dates are resolved, no reply
+obligations inferred, and no follow-up tasks created. It is not a contextual
+summary or a complete daily view.
+
+The entire account's message/thread ownership and sample status is checked
+before selecting output. Any real message, mixed ownership or orphaned
+account message makes this synthetic route fail closed. Empty accounts
+return an empty inventory. Existing global token/loopback protection still
+applies; account IDs select data within the single-owner app, not user
+identities in a multi-tenant service.
+
+Bounds: 20 nonempty threads ordered by their actual latest stored message
+(not the possibly stale thread timestamp), unknown timestamps last. Each
+thread reuses the 50-message/8000-character review limits and includes at
+most two first-line highlights and five phrase candidates. Counts describe
+all account messages or the named full thread; omissions and source-scan
+limits are separate explicit fields. Evidence offsets refer to source text
+from that thread's review endpoint. No returned result claims freshness,
+daily completeness, verified urgency or absence of omitted obligations.
+No LLM, network call, persistent write or mail effect is involved.
