@@ -9,9 +9,10 @@ from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
 from .database import get_db
+from .services.access import require_access
 from .models import Email, Thread
 
-router = APIRouter()
+router = APIRouter(dependencies=[Depends(require_access)])
 
 _PAGE = """<!DOCTYPE html>
 <html lang="en">
