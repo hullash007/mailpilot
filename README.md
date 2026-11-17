@@ -71,5 +71,8 @@ Security notes: emails are untrusted input; a deterministic policy engine -
 not the LLM - authorizes actions. OAuth login state is stored server-side,
 expires after 10 minutes, is single-use, and is bound to the initiating
 browser with an HMAC-signed HttpOnly cookie (OAUTH_STATE_SECRET). OAuth
-tokens are stored per account; encrypt-at-rest hardening is scheduled before
-any write scopes are added.
+tokens are stored per account, Fernet-encrypted at rest (TOKEN_ENCRYPTION_KEY
+required; storage fails closed without it). LLM features (Phase 2) use a
+config-driven OpenAI-compatible endpoint (LLM_BASE_URL/LLM_MODEL) intended
+for a private VM or tunnel, never a public unauthenticated endpoint. The
+dashboard labels seeded sample data with a banner and SAMPLE badges.
