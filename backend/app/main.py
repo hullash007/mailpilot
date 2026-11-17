@@ -5,6 +5,7 @@ from fastapi import FastAPI
 
 from .api.access_routes import router as access_router
 from .api.routes import router
+from .briefing_dashboard import router as briefing_dashboard_router
 from .thread_dashboard import router as thread_dashboard_router
 from .dashboard import router as dashboard_router
 from .database import Base, engine, ensure_schema
@@ -27,6 +28,7 @@ def create_app() -> FastAPI:
     app.include_router(router)
     app.include_router(dashboard_router)
     app.include_router(thread_dashboard_router)
+    app.include_router(briefing_dashboard_router)
     return app
 
 
