@@ -357,7 +357,7 @@ def create_app():
               account: GmailAccount = Depends(own_account), db: Session = Depends(get_db)):
         data = stored_inbox.inbox(db, account.id, query=q, category=category,
                                   priority=priority, before=before, limit=limit)
-        body = '<h1>Your stored inbox</h1><p>Signed in as ' + esc(account.email_address) + '</p><p class="notice">Stored mail only, not a live or complete inbox. Sync is manual and bounded to five recent messages. Real-mail AI is off. No mail changes.</p><nav><form method="post" action="/app/sync"><button>Import up to 5 recent messages</button></form><form method="post" action="/logout"><button>Sign out</button></form></nav>'
+        body = '<nav><a href="/workspace">Search stored conversations and message text</a></nav><h1>Your stored inbox</h1><p>Signed in as ' + esc(account.email_address) + '</p><p class="notice">Stored mail only, not a live or complete inbox. Sync is manual and bounded to five recent messages. Real-mail AI is off. No mail changes.</p><nav><form method="post" action="/app/sync"><button>Import up to 5 recent messages</button></form><form method="post" action="/logout"><button>Sign out</button></form></nav>'
         body += '<form class="filters" method="get" action="/app"><label>Search stored subject, sender or snippet<input name="q" maxlength="200" value="' + esc(q) + '" placeholder="Literal search"></label>'
         for name, current, values in [('category', category, sorted(stored_inbox.CATEGORIES)), ('priority', priority, sorted(stored_inbox.PRIORITIES))]:
             body += '<label>' + name.capitalize() + '<select name="' + name + '"><option value="">All</option>'
@@ -406,7 +406,8 @@ def create_app():
         response.delete_cookie(COOKIE, httponly=True, secure=True, samesite='lax')
         return response
 
-    return app
+    from .stored_conversations import install_routes
+    return install_routes(app)
 
 
 app = create_app()
