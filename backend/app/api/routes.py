@@ -5,6 +5,7 @@ from pydantic import BaseModel
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
+from ..config import get_settings
 from ..database import get_db
 from ..integrations.gmail import oauth
 from ..integrations.gmail.client import GmailClient
@@ -47,6 +48,7 @@ def google_login(db: Session = Depends(get_db)) -> JSONResponse:
         # fail every real browser callback. Lax still blocks cross-site
         # subrequests and POSTs.
         samesite="lax",
+        secure=get_settings().cookie_secure,
     )
     return response
 
@@ -72,6 +74,9 @@ def google_callback(
     if not address:
         raise HTTPException(status_code=502, detail="Google did not return an account email address.")
 
+    allowed = get_settings().google_allowed_email
+    if allowed and address.casefold() != allowed.casefold():
+        raise HTTPException(status_code=403, detail="This Google account is not allowed.")
     account = db.scalar(select(GmailAccount).where(GmailAccount.email_address == address))
     if account is None:
         account = GmailAccount(email_address=address)
