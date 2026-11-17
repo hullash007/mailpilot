@@ -11,6 +11,7 @@ from ..integrations.gmail.client import GmailClient
 from ..models import Email, GmailAccount, Thread
 from ..services.ingestion import ingest_account
 from ..services import oauth_state
+from ..services.crypto import TokenEncryptionError
 
 router = APIRouter()
 
@@ -68,7 +69,7 @@ def google_callback(
     if account is None:
         account = GmailAccount(email_address=address)
         db.add(account)
-    account.credentials_json = credentials
+    account.credentials = credentials
     account.history_id = str(profile.get("historyId", "")) or None
     db.commit()
     return {"connected": address, "account_id": account.id}
@@ -79,9 +80,12 @@ def ingest(account_id: int, max_results: int = 20, db: Session = Depends(get_db)
     account = db.get(GmailAccount, account_id)
     if account is None:
         raise HTTPException(status_code=404, detail="Unknown account.")
-    if not account.credentials_json:
+    if not account.credentials_blob:
         raise HTTPException(status_code=409, detail="Account has no stored OAuth credentials.")
-    return ingest_account(db, account, max_results=max_results)
+    try:
+        return ingest_account(db, account, max_results=max_results)
+    except TokenEncryptionError as exc:
+        raise HTTPException(status_code=503, detail=str(exc))
 
 
 @router.get("/emails")
