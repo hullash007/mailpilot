@@ -43,6 +43,10 @@ class OAuthState(Base):
     __tablename__ = "oauth_states"
 
     state: Mapped[str] = mapped_column(String(128), primary_key=True)
+    # PKCE verifier for this login attempt, held server-side between the
+    # authorization redirect and the callback (Google rejects the token
+    # exchange without it). Deleted together with the state on consume.
+    code_verifier: Mapped[str] = mapped_column(String(128))
     created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
     expires_at: Mapped[datetime] = mapped_column(DateTime)
 
