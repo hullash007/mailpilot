@@ -1,4 +1,6 @@
 """LLM provider abstraction: config gating and request shape."""
+import json
+
 from unittest.mock import patch, MagicMock
 
 import pytest
@@ -26,7 +28,8 @@ def test_request_shape(monkeypatch):
     monkeypatch.setenv("LLM_MODEL", "llama3.1:8b")
     provider = llm.get_provider()
     fake = MagicMock()
-    fake.json.return_value = {"choices": [{"message": {"content": "ok"}}]}
+    fake.status_code = 200
+    fake.iter_content.return_value = [json.dumps({"model":"llama3.1:8b", "choices": [{"message": {"role":"assistant", "content": "ok"}, "finish_reason":"stop"}]}).encode()]
     fake.raise_for_status = lambda: None
     with patch("app.services.llm.requests.post", return_value=fake) as post:
         out = provider.complete("summarize", system="be terse")
