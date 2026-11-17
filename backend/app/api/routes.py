@@ -30,10 +30,10 @@ class LoginResponse(BaseModel):
 @router.get("/auth/google/login", response_model=LoginResponse)
 def google_login(db: Session = Depends(get_db)) -> JSONResponse:
     try:
-        url, state = oauth.authorization_url()
+        url, state, code_verifier = oauth.authorization_url()
     except RuntimeError as exc:
         raise HTTPException(status_code=503, detail=str(exc))
-    oauth_state.issue_state(db, state)
+    oauth_state.issue_state(db, state, code_verifier)
     response = JSONResponse(content=LoginResponse(authorization_url=url, state=state).model_dump())
     # Binds this state to the initiating browser; the callback requires it.
     response.set_cookie(
@@ -54,10 +54,11 @@ def google_callback(
         raise HTTPException(status_code=400, detail="Missing OAuth state.")
     if not oauth_state.cookie_matches(request.cookies.get(oauth_state.COOKIE_NAME), state):
         raise HTTPException(status_code=403, detail="OAuth state does not match this browser.")
-    if not oauth_state.consume_state(db, state):
+    code_verifier = oauth_state.consume_state(db, state)
+    if code_verifier is None:
         raise HTTPException(status_code=403, detail="OAuth state is unknown, used or expired.")
     try:
-        credentials = oauth.exchange_code(code, state=state)
+        credentials = oauth.exchange_code(code, state=state, code_verifier=code_verifier)
     except Exception:
         # State is already consumed; the user must restart login.
         raise HTTPException(status_code=502, detail="Google token exchange failed; please restart login.")
