@@ -169,3 +169,30 @@ required; storage fails closed without it). LLM features (Phase 2) use a
 config-driven OpenAI-compatible endpoint (LLM_BASE_URL/LLM_MODEL) intended
 for a private VM or tunnel, never a public unauthenticated endpoint. The
 dashboard labels seeded sample data with a banner and SAMPLE badges.
+
+## Sample thread understanding (literal, read-only)
+
+`GET /accounts/{account_id}/threads/{thread_id}/review` and the matching
+`/dashboard/accounts/{account_id}/threads/{thread_id}` view provide a
+synthetic-only thread review. Sample subjects in the inbox link to it.
+Mixed real/sample threads, wrong account IDs and inconsistent message
+ownership fail closed. This remains the single-owner access boundary, not a
+multi-user account login or tenant system.
+
+The view orders stored messages oldest first (unknown dates last), shows an
+extractive overview from each message's first line, and lists narrow literal
+request/deadline phrase matches. Each item links to its source message and
+carries exact Unicode code-point offsets into its returned source text.
+Candidates are unconfirmed untrusted text, including quoted replies and
+signatures, not facts, accepted requests, promises or tasks. No intent is
+inferred from sender identity. Relative/ambiguous date phrases are unresolved;
+ISO date literals are checked for calendar validity but never scheduled.
+No timezone, time of day or deadline is guessed. No match does not mean no
+request/deadline exists. Conflicts are displayed in source, not adjudicated.
+
+Bounds: first 50 messages, first8000 characters of body (or snippet fallback)
+per message,30 candidate items; omitted/truncated evidence is disclosed. No
+HTML from mail is executed. No LLM, network, persistence/migration, mail
+mutation, reminder or autonomous workflow is involved in this review view.
+This is evidence inspection toward Phase2, not contextual AI summarisation,
+full intent/deadline extraction, follow-up tracking or the full product.
