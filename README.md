@@ -31,11 +31,81 @@ Phase 1 is strictly read-only. No sending, deleting, or label changes.
 - `POST /classify/{account_id}` backfills older rows (idempotent)
 - These categories and priorities are rule-based suggestions only: they never
   trigger any mail action (Phase 1/2 stays read-only), and the LLM-refined
-  understanding replaces them once a private model endpoint is configured
+  second opinion stays separate once a private model endpoint is configured
   (LLM_BASE_URL/LLM_MODEL)
 - Known limitation: emails ingested before the header-sourcing parser fix
   (2026-11-17) were stored with stripped headers; backfill classifies them
   from subject/sender/labels only and never silently re-fetches from Gmail
+
+## Phase 3 - private AI suggestions (experimental, sample-only)
+
+Default off: `LLM_REFINE=0`. All Gmail access remains read-only. The supported
+AI path only selects records explicitly marked `is_sample=True`, so turning
+it on does not send an existing real inbox to the model.
+
+1. Configure `LLM_BASE_URL` with the private gateway's OpenAI-compatible URL
+   and `LLM_MODEL` with its installed model name. Access uses an authenticated
+   SSH tunnel; never expose Ollama or the gateway to the public internet.
+2. With `LLM_REFINE=1`, `POST /refine/{account_id}?limit=25` persists sample
+   jobs only. It never runs inference in an HTTP request. `POST /classify`
+   stays deterministic and backfills at most1000 rows per request.
+3. From the repository root, run the Linux/Unix worker as a separate process:
+
+       python scripts/refine_pending.py --account-id 1 --limit 25 --wall-seconds 90
+
+   This runs one slice and exits. No recurring worker or automatic model
+   calls are installed. Queue state persists across process restarts.
+
+Job semantics:
+- Separate AI state, timestamps, model and prompt version leave authoritative
+  `category`/`priority`/`classification_source=rules` unchanged. Green badges
+  show the baseline; amber badges show category AND priority disagreements.
+- Queue claims use atomic compare-and-set; each outcome commits separately.
+  Oldest-attempt-first selection and60/120/180second backoff prevent a bad
+  newest email from starving older work. Three failed/invalid attempts is
+  the ceiling. Interrupted running claims recover after120seconds; a final-
+  attempt crash becomes exhausted without another inference call.
+- Status distinguishes pending/running/agreement/suggested/invalid/failed.
+  Model/prompt provenance is persisted at claim, including invalid/failed
+  attempts. These fields describe the latest attempt, not an audit history.
+  Disabled/unconfigured inference is not successful work and remains pending.
+  A local lock prevents overlapping CLI workers on the same host; the shared
+  private gateway rejects concurrent inference with429. This is not yet a
+  distributed multi-project/tenant-aware queue.
+- Worker ceiling:100jobs/90seconds per run,60seconds per inference attempt,
+  hard Unix alarms, per-row commits. Ingestion never depends on inference.
+- Whole-response JSON is required: exactly string category/priority values
+  from the allowed vocabularies. Prose/fences/arrays/nested values/duplicate
+  keys/trailing content are invalid. Errors, truncated outputs and malformed
+  responses never alter the baseline.
+- Every input field is capped (subject300/sender200/labels10x50/snippet500),
+  AND the combined system+user messages must fit1400UTF8bytes. Oversized
+  requests are rejected, not silently truncated to fit the pilot. Output is
+  capped at128tokens,64KiB transport bytes and4000content characters. Model
+  name, completion reason and assistant role must match the expected contract.
+- The private gateway pilot uses2048context, a1400UTF8byte message budget,
+  reported-context checks and one active request. These conservative bounds
+  do not prove exact tokenisation or long-context RAG suitability. Gateway
+  readiness is not model readiness; cold model loads can still be slow.
+- Prompt boundaries and output validation do NOT prevent semantic prompt
+  manipulation. An attacker can influence a valid-vocabulary suggestion.
+  Separate advisory storage and no mail-action sink contain the effects.
+
+Evaluation: `python scripts/evaluate_classification.py` scores12 synthetic
+fixtures offline, including an injection-shaped case (11/12 rule matches in
+our initial run). `--llm` also requires `MAILPILOT_TEST_LLM_URL`; its default
+includes all12 cases. This is a small harness, not a representative accuracy
+claim. Proposed accuracy/recall/JSON-validity targets from planning remain
+unproven. The actual updated client/gateway completed one synthetic security
+email with the expected notification/high suggestion in15.91seconds. That
+proves short-request compatibility only, not broad model quality or uptime.
+
+The existing CPU-only14B Q4 model measured about3.8generated tokens/second
+on a4core ARM64/24GB VM. Cold load/context/cache materially change elapsed
+latency. Both installed variants returned the expected strings on a tiny
+synthetic email/grounded-answer check; cache reuse prevents choosing a speed
+winner from those timings. No smaller model or embedding model is benchmarked
+or selected. Longer RAG evidence and1024token answers do not fit this pilot.
 
 ## Repository layout
 
