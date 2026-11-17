@@ -6,6 +6,7 @@ from sqlalchemy.orm import sessionmaker
 from sqlalchemy.pool import StaticPool
 
 from app.database import Base, get_db
+from app.integrations.gmail.client import parse_message
 from app.models import Email, GmailAccount, Thread
 from app.services import ingestion
 from app.services.classify import classify_email
@@ -65,6 +66,42 @@ def test_personal_default_and_urgency_priority():
 def test_header_names_are_case_insensitive():
     category, _ = classify_email(headers={"list-unsubscribe": "<mailto:x@y.z>"}, label_ids=[], sender="a@b.c", subject="Hi")
     assert category == "newsletter"
+
+
+def _raw_gmail(headers):
+    return {"id": "m", "threadId": "t", "payload": {"headers": headers}}
+
+
+def test_end_to_end_raw_gmail_newsletter_signals():
+    # Real parser output feeds the classifier: List-Unsubscribe / Precedence
+    # must survive parse_message (they were dropped before the parser fix).
+    for extra in (
+        {"name": "List-Unsubscribe", "value": "<mailto:leave@example.com>"},
+        {"name": "Precedence", "value": "bulk"},
+    ):
+        p = parse_message(_raw_gmail([
+            {"name": "From", "value": "news@example.com"},
+            {"name": "Subject", "value": "Weekly digest"},
+            extra,
+        ]))
+        assert classify_email(headers=p["headers"], label_ids=p["label_ids"], sender=p["sender"], subject=p["subject"]) == ("newsletter", "low")
+
+
+def test_end_to_end_raw_gmail_auto_submitted():
+    p = parse_message(_raw_gmail([
+        {"name": "From", "value": "service@example.com"},
+        {"name": "Auto-Submitted", "value": "auto-generated"},
+    ]))
+    assert classify_email(headers=p["headers"], label_ids=[], sender=p["sender"], subject=p["subject"])[0] == "notification"
+
+
+def test_end_to_end_raw_gmail_lowercase_header_names():
+    p = parse_message(_raw_gmail([
+        {"name": "from", "value": "vendor@example.com"},
+        {"name": "subject", "value": "Your invoice"},
+    ]))
+    assert p["sender"] == "vendor@example.com"
+    assert classify_email(headers=p["headers"], label_ids=[], sender=p["sender"], subject=p["subject"])[0] == "receipt"
 
 
 class StubGmailClient:
