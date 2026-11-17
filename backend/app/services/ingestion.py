@@ -5,11 +5,14 @@ email is never stored twice; Phase 1 performs no writes to Gmail.
 """
 from __future__ import annotations
 
+from datetime import datetime
+
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from ..integrations.gmail.client import GmailClient
 from ..models import Email, GmailAccount, Thread
+from .classify import classify_email
 
 
 def ingest_account(db: Session, account: GmailAccount, max_results: int = 20) -> dict:
@@ -58,6 +61,12 @@ def ingest_account(db: Session, account: GmailAccount, max_results: int = 20) ->
             thread.subject = parsed["subject"] or thread.subject
             thread.snippet = parsed["snippet"] or thread.snippet
 
+        category, priority = classify_email(
+            headers=parsed["headers"],
+            label_ids=parsed["label_ids"],
+            sender=parsed["sender"],
+            subject=parsed["subject"],
+        )
         db.add(
             Email(
                 thread_id=thread.id,
@@ -71,6 +80,9 @@ def ingest_account(db: Session, account: GmailAccount, max_results: int = 20) ->
                 headers=parsed["headers"],
                 label_ids=parsed["label_ids"],
                 internal_date=parsed["internal_date"],
+                category=category,
+                priority=priority,
+                classified_at=datetime.utcnow(),
             )
         )
         stored += 1
