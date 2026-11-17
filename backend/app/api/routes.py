@@ -41,7 +41,11 @@ def google_login(db: Session = Depends(get_db)) -> JSONResponse:
         oauth_state.sign_state(state),
         max_age=oauth_state.STATE_TTL_SECONDS,
         httponly=True,
-        samesite="strict",
+        # Lax, not Strict: Google returns the user with a cross-site top-level
+        # GET, and Strict would withhold this cookie from that navigation and
+        # fail every real browser callback. Lax still blocks cross-site
+        # subrequests and POSTs.
+        samesite="lax",
     )
     return response
 
