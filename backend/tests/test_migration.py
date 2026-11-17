@@ -89,6 +89,10 @@ def test_ensure_schema_preserves_data_and_adds_columns(old_db):
     assert row.category == ""
     assert row.is_sample is False
     assert row.classified_at is None
+    assert row.ai_category == ""
+    assert row.ai_priority == ""
+    assert row.ai_classified_at is None
+    assert row.classification_source == "rules"
 
     # Backfill now works on the upgraded table.
     assert classify_unclassified(session, account.id)["classified"] == 1
