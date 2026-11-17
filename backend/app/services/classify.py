@@ -44,6 +44,11 @@ URGENCY_HINTS = (
 
 AUTOMATED_SENDER_HINTS = ("no-reply@", "noreply@", "donotreply@", "notifications@", "notify@")
 
+CATEGORIES = frozenset({
+    "receipt", "newsletter", "notification", "promotions", "social", "updates", "forums", "personal",
+})
+PRIORITIES = frozenset({"high", "normal", "low"})
+
 
 def _headers_lower(headers: dict) -> dict:
     return {str(k).lower(): str(v) for k, v in (headers or {}).items()}
@@ -84,8 +89,14 @@ def classify_email(
     return category, priority
 
 
-def classify_unclassified(db, account_id: int) -> int:
-    """Backfill classification for stored emails that lack it. Returns count.
+def classify_unclassified(db, account_id: int, refine=None) -> dict:
+    """Backfill classification for stored emails that lack it.
+
+    Returns {"classified": n, "llm_refined": m, "llm_failed": k}. When refine
+    is None the LLM counts are zero. refine, when given, is called with each
+    classified row and may adjust its category/priority (services.refine); it
+    returns "refined"/"kept"/"failed"/"off" and must never raise - the
+    deterministic baseline above always runs first and stands on any failure.
 
     Known limitation: rows ingested before the header-sourcing parser fix
     were stored with only the old whitelisted headers (From/To/Cc/Subject/
@@ -100,10 +111,15 @@ def classify_unclassified(db, account_id: int) -> int:
         select(Email).where(Email.account_id == account_id, Email.classified_at.is_(None))
     ).all()
 
+    refined = failed = 0
     for row in rows:
         row.category, row.priority = classify_email(
             headers=row.headers, label_ids=row.label_ids, sender=row.sender, subject=row.subject
         )
         row.classified_at = datetime.utcnow()
+        if refine is not None:
+            outcome = refine(row)
+            refined += outcome == "refined"
+            failed += outcome == "failed"
     db.commit()
-    return len(rows)
+    return {"classified": len(rows), "llm_refined": refined, "llm_failed": failed}
