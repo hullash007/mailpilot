@@ -247,3 +247,39 @@ its `TestClient(client=...)` option is used to verify remote access denial and
 was introduced in that release (official notes:
 https://starlette.dev/release-notes/). Resolver constraints from FastAPI still
 apply. Merely forcing0.50 into an older incompatible FastAPI is not safe.
+
+## Stored inbox workspace
+
+`/inbox` lists up to 100 stored account records for the app's single owner.
+Select one to open `/inbox/{account_id}`, with literal subject/sender/snippet
+search, category/priority filters, older-record navigation and account-scoped
+stored-message detail. A link from `/dashboard` opens the account selector.
+These read-only surfaces work with already stored sample or real records;
+adding them does not connect Google, ingest any message or enable AI.
+
+APIs: `GET /accounts`, `GET /accounts/{account_id}/inbox` and
+`GET /accounts/{account_id}/messages/{message_id}`. Inbox query parameters:
+`q` (up to 200 characters), `category`, `priority`, `limit` (1-50, default 25),
+and `before` (positive stored-record ID cursor). `%`, `_` and escape markers
+are literal search characters, not wildcard syntax. Case folding follows
+the database's collation and may differ across scripts/backends. Message
+bodies and attachments are not searched. Search matches full stored snippets;
+returned snippet previews are capped at 1000 characters with a flag.
+
+Pagination uses stored record IDs descending, not sent/received date. It
+is not a frozen mailbox snapshot: newly ingested records require returning
+to the first page; concurrent deletions/changes can affect results. Changing
+filters resets the page in the UI. The detail view shows escaped plain text,
+not HTML, with no remote images; body preview max 32000 characters, flagged.
+Source dates are timezone-unspecified stored values. Nothing indicates live
+sync, complete mailbox coverage, confirmed urgency or a safe email sender.
+
+Global owner access protection covers every route. Wrong account/message
+pairs return 404; account IDs do not authenticate separate users. Legacy
+single-owner overview endpoints remain available and are not multi-tenant
+APIs. No token/OAuth payload is returned by the account list. No network,
+LLM, mail mutation, draft, send or automatic follow-up is introduced.
+
+Recipient previews are capped at 2000 characters with an explicit API flag
+and visible warning. Real stored-source badges use separate styling from
+red SAMPLE labels; neither authenticates the source or sender.
