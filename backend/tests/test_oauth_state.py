@@ -69,6 +69,9 @@ def test_login_issues_state_and_binding_cookie(client):
     assert row.code_verifier == "verifier-123"
     cookie = resp.cookies.get(oauth_state.COOKIE_NAME)
     assert cookie == oauth_state.sign_state("state-abc")
+    # Lax (not Strict): the Google callback is a cross-site top-level GET and
+    # Strict would withhold the cookie, failing every real browser login.
+    assert "samesite=lax" in resp.headers["set-cookie"].lower()
 
 
 def test_callback_passes_stored_pkce_verifier(client):
