@@ -35,18 +35,26 @@ def client(monkeypatch):
     app = _create()
     app.dependency_overrides[get_db] = lambda: session
 
-    monkeypatch.setattr(routes.oauth, "authorization_url", lambda: ("https://accounts.example/auth", "state-abc"))
     monkeypatch.setattr(
         routes.oauth,
-        "exchange_code",
-        lambda code, state=None: {"token": "tok", "refresh_token": "ref", "scopes": ["readonly"]},
+        "authorization_url",
+        lambda: ("https://accounts.example/auth", "state-abc", "verifier-123"),
     )
+    captured: dict = {}
+
+    def _fake_exchange(code, state=None, code_verifier=None):
+        captured["code_verifier"] = code_verifier
+        return {"token": "tok", "refresh_token": "ref", "scopes": ["readonly"]}
+
+    monkeypatch.setattr(routes.oauth, "exchange_code", _fake_exchange)
     monkeypatch.setattr(
         routes.GmailClient,
         "get_profile",
         lambda self: {"emailAddress": "bob@example.com", "historyId": "1"},
     )
-    yield TestClient(app), session
+    http = TestClient(app)
+    http.captured_exchange = captured
+    yield http, session
     session.close()
 
 
@@ -58,8 +66,17 @@ def test_login_issues_state_and_binding_cookie(client):
     assert body["state"] == "state-abc"
     row = session.get(OAuthState, "state-abc")
     assert row is not None and row.expires_at > datetime.utcnow()
+    assert row.code_verifier == "verifier-123"
     cookie = resp.cookies.get(oauth_state.COOKIE_NAME)
     assert cookie == oauth_state.sign_state("state-abc")
+
+
+def test_callback_passes_stored_pkce_verifier(client):
+    http, session = client
+    http.get("/auth/google/login")
+    resp = http.get("/auth/google/callback", params={"code": "c1", "state": "state-abc"})
+    assert resp.status_code == 200
+    assert http.captured_exchange["code_verifier"] == "verifier-123"
 
 
 def test_callback_success_consumes_state(client):
