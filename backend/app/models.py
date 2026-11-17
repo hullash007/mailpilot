@@ -64,10 +64,14 @@ class Thread(Base):
 
 class Email(Base):
     __tablename__ = "emails"
+    # Same Gmail message can be ingested for two connected accounts; dedup is
+    # per account.
+    __table_args__ = (UniqueConstraint("account_id", "gmail_message_id", name="uq_email_account_gmailid"),)
 
     id: Mapped[int] = mapped_column(primary_key=True)
     thread_id: Mapped[int] = mapped_column(ForeignKey("threads.id"), index=True)
-    gmail_message_id: Mapped[str] = mapped_column(String(64), unique=True, index=True)
+    account_id: Mapped[int] = mapped_column(ForeignKey("gmail_accounts.id"), index=True)
+    gmail_message_id: Mapped[str] = mapped_column(String(64), index=True)
     subject: Mapped[str] = mapped_column(String(998), default="")
     sender: Mapped[str] = mapped_column(String(320), default="", index=True)
     recipients: Mapped[str] = mapped_column(Text, default="")
