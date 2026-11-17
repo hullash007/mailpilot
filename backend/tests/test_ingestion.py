@@ -45,7 +45,7 @@ def db(monkeypatch):
 
 
 def test_ingest_stores_and_dedupes(db):
-    account = GmailAccount(email_address="bob@example.com", credentials_json={"token": "x"})
+    account = GmailAccount(email_address="bob@example.com")
     db.add(account)
     db.commit()
 
