@@ -33,6 +33,9 @@ Phase 1 is strictly read-only. No sending, deleting, or label changes.
   trigger any mail action (Phase 1/2 stays read-only), and the LLM-refined
   understanding replaces them once a private model endpoint is configured
   (LLM_BASE_URL/LLM_MODEL)
+- Known limitation: emails ingested before the header-sourcing parser fix
+  (2026-11-17) were stored with stripped headers; backfill classifies them
+  from subject/sender/labels only and never silently re-fetches from Gmail
 
 ## Repository layout
 
