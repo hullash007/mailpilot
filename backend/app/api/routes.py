@@ -197,3 +197,22 @@ def account_sample_briefing(account_id: int, db: Session = Depends(get_db)) -> d
     """Bounded stored sample evidence only; never sends a briefing."""
     from ..services.briefing import sample_briefing
     return sample_briefing(db, account_id)
+
+
+@router.get('/accounts')
+def stored_accounts(db: Session = Depends(get_db)):
+    from ..services.inbox import account_list
+    return account_list(db)
+
+
+@router.get('/accounts/{account_id}/inbox')
+def stored_inbox(account_id: int, q: str = '', category: str = '', priority: str = '',
+                 before: int | None = None, limit: int = 25, db: Session = Depends(get_db)):
+    from ..services.inbox import inbox
+    return inbox(db, account_id, q, category, priority, before, limit)
+
+
+@router.get('/accounts/{account_id}/messages/{message_id}')
+def scoped_stored_message(account_id: int, message_id: int, db: Session = Depends(get_db)):
+    from ..services.inbox import stored_message
+    return stored_message(db, account_id, message_id)
