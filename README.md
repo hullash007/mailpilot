@@ -16,6 +16,8 @@ require explicit approval.
 - Gmail message and thread retrieval
 - PostgreSQL persistence with deduplication (no duplicate emails)
 - FastAPI endpoints for auth, ingestion and reading stored mail
+- Basic inbox dashboard at `/dashboard` (served by FastAPI; the React + Vite
+  frontend from the plan arrives in a later phase)
 - Docker Compose for the database
 
 Phase 1 is strictly read-only. No sending, deleting, or label changes.
