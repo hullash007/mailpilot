@@ -86,6 +86,10 @@ class Email(Base):
     internal_date: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
     # True for seeded demo data - the dashboard labels it, never as real mail.
     is_sample: Mapped[bool] = mapped_column(default=False)
+    # Phase 2 baseline classification (deterministic rules, services/classify.py).
+    category: Mapped[str] = mapped_column(String(32), default="", index=True)
+    priority: Mapped[str] = mapped_column(String(16), default="", index=True)
+    classified_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
     ingested_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
 
     thread: Mapped[Thread] = relationship(back_populates="emails")
