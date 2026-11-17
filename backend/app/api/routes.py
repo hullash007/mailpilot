@@ -12,6 +12,7 @@ from ..models import Email, GmailAccount, Thread
 from ..services.ingestion import ingest_account
 from ..services import oauth_state
 from ..services.access import require_access
+from ..services.classify import classify_unclassified
 from ..services.crypto import TokenEncryptionError
 
 router = APIRouter(dependencies=[Depends(require_access)])
@@ -94,6 +95,15 @@ def ingest(account_id: int, max_results: int = 20, db: Session = Depends(get_db)
         raise HTTPException(status_code=503, detail=str(exc))
 
 
+@router.post("/classify/{account_id}")
+def classify(account_id: int, db: Session = Depends(get_db)) -> dict:
+    """Backfill baseline classification for an account's stored emails."""
+    account = db.get(GmailAccount, account_id)
+    if account is None:
+        raise HTTPException(status_code=404, detail="Unknown account.")
+    return {"classified": classify_unclassified(db, account_id)}
+
+
 @router.get("/emails")
 def list_emails(limit: int = 50, offset: int = 0, db: Session = Depends(get_db)) -> list[dict]:
     rows = db.scalars(
@@ -110,6 +120,8 @@ def list_emails(limit: int = 50, offset: int = 0, db: Session = Depends(get_db))
             "snippet": e.snippet,
             "internal_date": e.internal_date.isoformat() if e.internal_date else None,
             "label_ids": e.label_ids,
+            "category": e.category,
+            "priority": e.priority,
         }
         for e in rows
     ]
