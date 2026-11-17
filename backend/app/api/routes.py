@@ -101,9 +101,21 @@ def classify(account_id: int, db: Session = Depends(get_db)) -> dict:
     account = db.get(GmailAccount, account_id)
     if account is None:
         raise HTTPException(status_code=404, detail="Unknown account.")
-    from ..services.refine import maybe_refine
+    return classify_unclassified(db, account_id)
 
-    return classify_unclassified(db, account_id, refine=maybe_refine)
+
+@router.post("/refine/{account_id}")
+def refine(account_id: int, limit: int = 25, db: Session = Depends(get_db)) -> dict:
+    """Enqueue a bounded sample-only AI pass; NEVER call inference in HTTP.
+
+    Same fail-closed access as every route on this router. Suggestions land in
+    the separate ai_* columns; rule classifications stay authoritative.
+    """
+    from ..services.refine import enqueue_samples
+
+    if db.get(GmailAccount, account_id) is None:
+        raise HTTPException(status_code=404, detail="account not found")
+    return enqueue_samples(db, account_id, limit=limit)
 
 
 @router.get("/emails")
@@ -124,6 +136,12 @@ def list_emails(limit: int = 50, offset: int = 0, db: Session = Depends(get_db))
             "label_ids": e.label_ids,
             "category": e.category,
             "priority": e.priority,
+            "classification_source": e.classification_source,
+            "ai_category": e.ai_category,
+            "ai_priority": e.ai_priority,
+            "ai_status": e.ai_status,
+            "ai_model": e.ai_model,
+            "ai_prompt_version": e.ai_prompt_version,
         }
         for e in rows
     ]
