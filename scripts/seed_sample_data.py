@@ -11,6 +11,7 @@ sys.path.insert(0, "backend")
 
 from app.database import SessionLocal, Base, engine
 from app.models import Email, GmailAccount, Thread
+from app.services.classify import classify_email
 
 SAMPLES = [
     # (sender, subject, snippet, extra_headers, label_ids)
@@ -52,13 +53,16 @@ def main() -> None:
             db.flush()
             headers = {"From": sender, "Subject": subject}
             headers.update(extra_headers)
+            category, priority = classify_email(headers=headers, label_ids=label_ids,
+                sender=sender, subject=subject)
             db.add(Email(
                 thread_id=thread.id,
                 account_id=account.id, gmail_message_id=f"sample-m{i}",
                 subject=subject, sender=sender, recipients="you@example.com",
                 snippet=snippet, body_text=snippet, headers=headers,
                 label_ids=label_ids, internal_date=thread.last_message_at,
-                is_sample=True,
+                is_sample=True, category=category, priority=priority,
+                classified_at=datetime.utcnow(), classification_source="rules",
             ))
         db.commit()
         print(f"Seeded {len(SAMPLES)} sample emails (is_sample=True).")
