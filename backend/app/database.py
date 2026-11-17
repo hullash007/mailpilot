@@ -18,6 +18,17 @@ _EMAIL_COLUMN_UPGRADES = {
     "category": "VARCHAR(32) NOT NULL DEFAULT ''",
     "priority": "VARCHAR(16) NOT NULL DEFAULT ''",
     "classified_at": "TIMESTAMP NULL",
+    # Phase 3: LLM suggestions live apart from the authoritative rule columns.
+    "ai_category": "VARCHAR(32) NOT NULL DEFAULT ''",
+    "ai_priority": "VARCHAR(16) NOT NULL DEFAULT ''",
+    "ai_classified_at": "TIMESTAMP NULL",
+    "classification_source": "VARCHAR(16) NOT NULL DEFAULT 'rules'",
+    "ai_status": "VARCHAR(16) NOT NULL DEFAULT 'none'",
+    "ai_attempts": "INTEGER NOT NULL DEFAULT 0",
+    "ai_attempted_at": "TIMESTAMP NULL",
+    "ai_next_attempt_at": "TIMESTAMP NULL",
+    "ai_model": "VARCHAR(128) NOT NULL DEFAULT ''",
+    "ai_prompt_version": "VARCHAR(32) NOT NULL DEFAULT ''",
 }
 
 
@@ -30,7 +41,7 @@ def ensure_schema(engine) -> None:
         for name, ddl in _EMAIL_COLUMN_UPGRADES.items():
             if name not in existing:
                 conn.execute(text(f"ALTER TABLE emails ADD COLUMN {name} {ddl}"))
-        for ix, col in (("ix_emails_category", "category"), ("ix_emails_priority", "priority")):
+        for ix, col in (("ix_emails_category", "category"), ("ix_emails_priority", "priority"), ("ix_emails_ai_status", "ai_status")):
             conn.execute(text(f"CREATE INDEX IF NOT EXISTS {ix} ON emails ({col})"))
 
 
