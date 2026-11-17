@@ -55,6 +55,8 @@ _PAGE = """<!DOCTYPE html>
             border-radius: 10px; padding: 10px 16px; margin: 16px 24px 0;
             font-size: 13px; }
   .label.sample { background: #fde8e8; color: #8f1d1d; font-weight: 700; }
+  .label.cat { background: #e6f4ea; color: #1e7e34; }
+  .label.prio-high { background: #fde8e8; color: #8f1d1d; font-weight: 700; }
   td, th { overflow-wrap: anywhere; }
   @media (max-width: 640px) {
     header { padding: 12px 16px; flex-wrap: wrap; }
@@ -73,7 +75,7 @@ _PAGE = """<!DOCTYPE html>
 </style>
 </head>
 <body>
-<header><h1>MailPilot</h1><span>Phase 1 - Gmail Foundation (read-only)</span></header>
+<header><h1>MailPilot</h1><span>Read-only. Categories/priorities are rule-based baseline suggestions, not AI understanding.</span></header>
 <section class="stats">
   <div class="stat"><b>__EMAIL_COUNT__</b><span>emails stored</span></div>
   <div class="stat"><b>__THREAD_COUNT__</b><span>threads</span></div>
@@ -89,11 +91,13 @@ __BODY__
 _ROW = """<tr>
   <td class="sender">{sender}{sample_badge}</td>
   <td><div>{subject}</div><div class="snippet">{snippet}</div>
-      <div class="labels">{labels}</div></td>
+      <div class="labels">{class_badges}{labels}</div></td>
   <td class="date">{date}</td>
 </tr>"""
 
 _SAMPLE_BADGE = ' <span class="label sample">SAMPLE</span>'
+_CAT_BADGE = '<span class="label cat">{}</span>'
+_PRIO_BADGE = '<span class="label prio-high">high priority</span>'
 _BANNER = ('<div class="banner">Showing sample data - this is not connected to '
            'a real inbox.</div>')
 
@@ -128,6 +132,10 @@ def dashboard(db: Session = Depends(get_db)) -> HTMLResponse:
                 sender=_esc(e.sender),
                 subject=_esc(e.subject) or "(no subject)",
                 snippet=_esc(e.snippet),
+                class_badges=(
+                    (_CAT_BADGE.format(_esc(e.category)) if e.category else "")
+                    + (_PRIO_BADGE if e.priority == "high" else "")
+                ),
                 labels="".join(
                     f'<span class="label">{_esc(str(l))}</span>' for l in (e.label_ids or [])
                 ),
