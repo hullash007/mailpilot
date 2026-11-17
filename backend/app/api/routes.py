@@ -101,7 +101,9 @@ def classify(account_id: int, db: Session = Depends(get_db)) -> dict:
     account = db.get(GmailAccount, account_id)
     if account is None:
         raise HTTPException(status_code=404, detail="Unknown account.")
-    return {"classified": classify_unclassified(db, account_id)}
+    from ..services.refine import maybe_refine
+
+    return classify_unclassified(db, account_id, refine=maybe_refine)
 
 
 @router.get("/emails")
