@@ -4,7 +4,20 @@ A read-only email workspace with explainable classification and an experimental,
 
 MailPilot turns stored Gmail messages into a searchable inbox, source-linked thread reviews and a bounded sample briefing. The project explores a practical question: how can an email assistant add useful intelligence without giving a language model control of the mailbox?
 
-**Status:** protected single-owner hosted pilot with Google sign-in. A genuine hosted Google identity/Gmail read-only roundtrip, subject-bound own inbox, logout and sign-in persistence have been checked for the configured owner. Five recent messages were imported for qualification. Other-person access, production release, send/delete/label changes and autonomous follow-up are not enabled.
+**Status (18 November 2026):** working public fictional sample plus a restricted private Google pilot. The current private pilot supports the configured tester's five previously stored messages, conversation detail and literal search. Real Google sign-in and the same-browser callback have been checked against the current encrypted-storage composition. AI and full-mailbox sync are off. General Gmail onboarding, sending, deleting, relabelling and autonomous follow-up are not enabled.
+
+## Open the website
+
+- [Try the fictional sample](https://mailpilot-workspace.duckdns.org/): no login, download or local setup. Sample decisions stay in that browser.
+- [Open the private stored workspace](https://mailpilot-workspace.duckdns.org/workspace): Google sign-in is required and currently restricted to the configured tester. [Direct sign-in](https://mailpilot-workspace.duckdns.org/login) is also available. Other visitors cannot connect their own Gmail yet.
+
+The public sample is not evidence of real-mail actions. Connecting a mailbox does not publish its contents. Google Testing status, verification and any required security assessment remain separate release gates.
+
+## Current source and deployment
+
+The editable source includes reviewed revision `6a6ad3e584d4d59fcea5a098448533a3adcd021d`. The separately retained source-only ZIP is a versioned snapshot, not the application delivery method. The live private release uses a source-hash-verified launcher and the `app.private_entrypoint_candidate.create_from_environment` factory, with a pinned SQLCipher runtime and explicit schema version. Candidate names are historical source-module names; they are not a claim that all experimental routes are live.
+
+The private pilot uses an encrypted active database and separately encrypted OAuth token values. The original plaintext database remains as a restricted historical rollback artifact; it has not been erased. After new writes, restoring that old file would lose state and is not a valid automatic rollback. No backup-erasure, retention, recovery-time or availability guarantee is made.
 
 ## What works
 
@@ -57,7 +70,7 @@ FastAPI ingestion -> SQLAlchemy storage -> deterministic classification
                                           validated advisory fields only
 ```
 
-Python, FastAPI, SQLAlchemy and server-rendered HTML. The current hosted single-owner pilot and isolated demo use SQLite. PostgreSQL is an intended later deployment choice, not the live database. A separate CLI worker handles optional inference outside HTTP requests. LangGraph and a React frontend are roadmap choices, not installed capabilities.
+Python, FastAPI, SQLAlchemy and server-rendered HTML. The local synthetic demo uses SQLite; the current hosted private pilot uses SQLCipher-encrypted SQLite. PostgreSQL is an intended later deployment choice, not the live database. A separate CLI worker handles optional inference outside HTTP requests. LangGraph and a React frontend are roadmap choices, not installed capabilities.
 
 ## Engineering decisions
 
@@ -65,7 +78,7 @@ Python, FastAPI, SQLAlchemy and server-rendered HTML. The current hosted single-
 - **Evidence before claims.** Sample thread candidates link back to exact text; scan limits and omissions are visible. A phrase match is not a verified deadline or accepted task.
 - **Fail closed.** Wrong account/message pairs, mixed real/sample review data, invalid model responses and inconsistent hosted configuration are rejected.
 - **Bounded inference.** Persisted claims, per-attempt limits, retries/backoff and per-row commits keep slow or interrupted model work separate from ingestion.
-- **Honest security boundaries.** OAuth tokens are encrypted, but stored email text is not application-encrypted. Host-level access, TLS and disk safeguards remain deployment requirements.
+- **Honest security boundaries.** The current active private database and OAuth tokens are encrypted. This does not protect against an authorized running server, erase the retained original plaintext file, or establish encrypted backups. Host access and secret custody remain deployment requirements.
 
 ## Test
 
@@ -74,17 +87,19 @@ cd backend
 pytest -q
 ```
 
-The Google-only inbox revision passed **190 tests, with 2 optional integration tests skipped** on the actual ARM64 Python 3.12.3 host. Optional PostgreSQL integration tests were not run in that qualification. Tests cover ingestion, classification, inbox scoping, source offsets, sample-only gates, worker recovery, strict model parsing and owner-session/Origin/Host boundaries. These are functional tests, not a security audit or a general model-accuracy claim.
+The earlier Google-only inbox revision passed **190 tests, with 2 optional integration tests skipped** on the actual ARM64 Python 3.12.3 host. Optional PostgreSQL integration tests were not run in that qualification. Tests cover ingestion, classification, inbox scoping, source offsets, sample-only gates, worker recovery, strict model parsing and owner-session/Origin/Host boundaries. These are functional tests, not a security audit or a general model-accuracy claim.
+
+The current sign-in entry fix passed 32 focused private-composition and integrated-route tests on Python 3.12, including two new regressions. These use fictional fixtures and do not establish native encryption. Separate native ARM cipher/conversion checks and the actual configured-tester browser journey qualified the current private release. Full test counts from older revisions must not be treated as a fresh full-suite run of this revision.
 
 Earlier disposable Chromium checks covered synthetic OAuth cookie mechanics. The hosted Google-only pilot was then checked in an actual browser: real Google OpenID identity plus read-only Gmail consent, a five-message same-mailbox migration dry run, atomic subject binding preserving existing mail/ciphertext, flags-off normal sign-in, service-restart session persistence and logout. This is one configured owner, not two-real-account tenant acceptance or a security audit.
 
 ## Hosted Google-only pilot
 
-The hosted entrypoint is `app.google_main:app`, separate from the original local development app. It offers a Google sign-in button with no user-entered access key. Only the configured owner is currently enabled. OAuth requests use OpenID identity/email and `gmail.readonly`, never send/delete scopes. Mailbox ownership comes from the verified immutable Google subject, not an address supplied by the browser. Legacy shared account-selector/API routes are absent from this entrypoint. Manual imports are bounded to five recent messages; connecting does not imply a complete or continuously synced inbox.
+The current hosted composition is the explicit `app.private_entrypoint_candidate.create_from_environment` factory, launched only after source/runtime custody and storage validation. `app.google_main:app` is an earlier composition, not the current live entrypoint. It offers a Google sign-in button with no user-entered access key. Only the configured owner is currently enabled. OAuth requests use OpenID identity/email and `gmail.readonly`, never send/delete scopes. Mailbox ownership comes from the verified immutable Google subject, not an address supplied by the browser. Legacy shared account-selector/API routes are absent from this entrypoint. The current composition has no import or provider-refresh route. Its five messages were imported earlier; connecting does not import new messages or imply a complete or continuously synced inbox.
 
 The one-off migration is disabled by default and was removed after the owner binding. It is not a general email-matching account-claim feature. See [Google-only hosting notes](docs/GOOGLE-ONLY-HOSTING.md) for boundaries and actual qualification.
 
-The hosted inbox adds literal search, category/priority filters and stored-ID pagination to `/app`, deriving the account only from the verified subject. The reviewed revision passed 190 tests with 2 optional skips on the actual ARM64 Python 3.12.3 host, separately reproduced on Python 3.10. Actual owner-session search, filters, older pages and detail were checked after restart without another import; stored mail and mailbox binding stayed unchanged.
+The current `/workspace` provides literal search, category/priority filters and stored conversation detail, deriving the account only from the verified subject. `/app` redirects to that workspace. The earlier hosted inbox added stored-ID pagination to `/app`. The reviewed revision passed 190 tests with 2 optional skips on the actual ARM64 Python 3.12.3 host, separately reproduced on Python 3.10. Actual owner-session search, filters, older pages and detail were checked after restart without another import; stored mail and mailbox binding stayed unchanged.
 
 ## Connect Gmail locally
 
