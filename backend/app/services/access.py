@@ -46,7 +46,7 @@ def require_same_origin(request: Request) -> None:
     Bearer clients do not call this check: credentials are explicit, not ambient.
     Missing/null Origin is refused in hosted mode rather than trusting Referer.
     """
-    origin = get_settings().public_origin
+    origin = getattr(request.app.state, "explicit_origin", None) or get_settings().public_origin
     if origin and request.headers.get("origin") != origin:
         raise HTTPException(status_code=403, detail="Same-origin request required.")
 

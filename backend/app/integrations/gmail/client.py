@@ -123,3 +123,53 @@ class GmailClient:
             .execute()
         )
         return [parse_message(m) for m in raw.get("messages", [])]
+
+    def list_message_page(self, page_token: str | None = None, page_size: int = 25) -> dict:
+        """One bounded page, excluding Spam/Trash; caller persists continuation."""
+        if type(page_size) is not int or not 1 <= page_size <= 100:
+            raise ValueError('Invalid Gmail page size')
+        return self.service.users().messages().list(
+            userId='me', maxResults=page_size, pageToken=page_token,
+            includeSpamTrash=False,
+        ).execute(num_retries=0)
+
+    def list_history_page(self, start_history_id: str, page_token: str | None = None) -> dict:
+        """One page; do not advance start_history_id between continuation pages."""
+        if not start_history_id or not start_history_id.isdecimal():
+            raise ValueError('Invalid Gmail history cursor')
+        return self.service.users().history().list(
+            userId='me', startHistoryId=start_history_id, pageToken=page_token,
+            maxResults=100,
+        ).execute(num_retries=0)
+
+
+class GmailSyncClient(GmailClient):
+    """Candidate-only bounded network transport, never selected by live app."""
+    def __init__(self, credentials_dict: dict):
+        import httplib2
+        from google_auth_httplib2 import AuthorizedHttp
+        creds = Credentials(**credentials_dict)
+        self.http = httplib2.Http(timeout=20)
+        self.service = build('gmail', 'v1', http=AuthorizedHttp(creds, http=self.http),
+                             cache_discovery=False)
+
+    def get_profile(self) -> dict:
+        return self.service.users().getProfile(userId='me').execute(num_retries=0)
+
+    def get_thread(self, thread_id: str) -> list[dict]:
+        raw = self.service.users().threads().get(userId='me', id=thread_id, format='full').execute(num_retries=0)
+        return [parse_message(m) for m in raw.get('messages', [])]
+
+
+    def get_thread_snapshot(self, thread_id: str) -> dict:
+        raw = self.service.users().threads().get(userId='me', id=thread_id, format='full').execute(num_retries=0)
+        return {'history_id': raw['historyId'], 'messages': [parse_message(m) for m in raw.get('messages', [])]}
+
+
+    def set_request_timeout(self, seconds: float):
+        # httplib2 caches connections; update their socket timeout too.
+        self.http.timeout = min(20, seconds)
+        for connection in self.http.connections.values():
+            connection.timeout = self.http.timeout
+            if getattr(connection, 'sock', None):
+                connection.sock.settimeout(self.http.timeout)

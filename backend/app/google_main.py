@@ -25,7 +25,7 @@ from sqlalchemy.orm import Mapped, Session, mapped_column
 from sqlalchemy.exc import IntegrityError
 
 from .config import get_settings
-from .database import Base, engine, ensure_schema, get_db
+from .database import Base, default_engine, ensure_schema, get_db
 from .models import GmailAccount, Email, Thread
 from .services import oauth_state
 from .services import inbox as stored_inbox
@@ -298,6 +298,7 @@ async def lifespan(app):
         raise RuntimeError('Google-only hosted configuration is incomplete or unsafe.')
     _key()
     Fernet(settings.token_encryption_key.encode())
+    engine = default_engine()
     Base.metadata.create_all(engine)
     ensure_schema(engine)
     yield

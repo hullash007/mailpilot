@@ -1,5 +1,6 @@
 """Database engine and session management."""
 from sqlalchemy import create_engine, inspect, text
+from threading import Lock
 from sqlalchemy.orm import DeclarativeBase, sessionmaker
 
 from .config import get_settings
@@ -49,12 +50,41 @@ def make_engine(url: str | None = None):
     return create_engine(url or get_settings().database_url, pool_pre_ping=True)
 
 
-engine = make_engine()
-SessionLocal = sessionmaker(bind=engine, autoflush=False, expire_on_commit=False)
+_default_lock = Lock()
+_default_pair = None
+
+
+def _defaults():
+    """Publish one engine/sessionmaker pair atomically, never a partial pair."""
+    global _default_pair
+    with _default_lock:
+        if _default_pair is None:
+            engine = make_engine()
+            sessions = sessionmaker(bind=engine, autoflush=False, expire_on_commit=False)
+            _default_pair = (engine, sessions)
+        return _default_pair
+
+
+def default_engine():
+    """Resolve legacy settings only when the legacy database is actually used."""
+    return _defaults()[0]
+
+
+def default_sessions():
+    return _defaults()[1]
+
+
+def __getattr__(name):
+    # Preserve explicit legacy imports without eager setup for Base/get_db users.
+    if name == 'engine':
+        return default_engine()
+    if name == 'SessionLocal':
+        return default_sessions()
+    raise AttributeError(name)
 
 
 def get_db():
-    db = SessionLocal()
+    db = default_sessions()()
     try:
         yield db
     finally:

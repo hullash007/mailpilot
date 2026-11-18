@@ -1,0 +1,38 @@
+[
+  {
+    "path": "backend/app/services/mailbox_sync.py",
+    "sha256": "6e9fe81c463118759e093f907b2b267472fa94bb44c1b98549ce58cd327c0e34"
+  },
+  {
+    "path": "backend/app/services/workspace.py",
+    "sha256": "51669ae450e76a450ee7e63bc2c6877d149e347bd3f0123dcda833ff8650cb6b"
+  },
+  {
+    "path": "backend/app/sync_models.py",
+    "sha256": "d7017c0af50b207d9bdbb2eaad01d5773e7bb6483835b6e3120ee7b5ce49712c"
+  },
+  {
+    "path": "backend/app/workspace_candidate.py",
+    "sha256": "9cf38e969a7b7fa6ae0c608cb8a3dad4f97254ab99dbb389cfb5e7b54b518500"
+  },
+  {
+    "path": "backend/tests/test_gmail_sync_client.py",
+    "sha256": "5cde7c0d5995b3de8b6db13a833c0c1391d9a1bd1aeab2daf903e5ed165025c1"
+  },
+  {
+    "path": "backend/tests/test_mailbox_sync.py",
+    "sha256": "34e43754be58451c5c84c1da05f49bc51f8a0628c135f689cb493fe2908ac621"
+  },
+  {
+    "path": "backend/tests/test_workspace_candidate.py",
+    "sha256": "97275cf9cc685ffa8038c72842641d95d7d5260de7970d0f9748018e54e41ceb"
+  },
+  {
+    "path": "docs/RELIABLE-SYNC-PLAN.md",
+    "sha256": "70ddd68ba959c6e280068eb0fad53cfdb9da3a4a1898d0ff77e1a853fe27b2db"
+  },
+  {
+    "path": "backend/app/integrations/gmail/client.py",
+    "sha256": "a3d464f9fbec540b75c32a3b77560c2f681c97c5a2a9875059686566117d73ab"
+  }
+]

@@ -13,7 +13,7 @@ from .inbox_dashboard import router as inbox_dashboard_router
 from .briefing_dashboard import router as briefing_dashboard_router
 from .thread_dashboard import router as thread_dashboard_router
 from .dashboard import router as dashboard_router
-from .database import Base, engine, ensure_schema
+from .database import Base, default_engine, ensure_schema
 from . import models  # noqa: F401 - register models before create_all
 
 
@@ -22,6 +22,7 @@ async def lifespan(app: FastAPI):
     # Phase 1/2 scaffold: auto-create tables on startup, then idempotently
     # upgrade older tables (create_all never alters them). Alembic migrations
     # replace this once the schema stabilizes.
+    engine = default_engine()
     Base.metadata.create_all(bind=engine)
     ensure_schema(engine)
     yield
