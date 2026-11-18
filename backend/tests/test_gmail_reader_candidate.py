@@ -141,7 +141,7 @@ def test_page_token_does_not_include_google_subject():
 def test_reconnect_required_has_no_partial_mail(app,client):
     def revoked(**kw):raise ReconnectRequired('private_error')
     app.state.boxes['harbor'].profile=revoked
-    r=client.get('/mail');assert r.status_code==503 and 'Reconnect your Gmail' in r.text and 'private_error' not in r.text and 'Design review' not in r.text
+    r=client.get('/mail');assert r.status_code==503 and 'Connect to Gmail again' in r.text and 'private_error' not in r.text and 'Design review' not in r.text
 
 def test_malformed_and_aggregate_mime_are_bounded():
     from app.services.gmail_reader import plain_parts,thread,MailUnavailable
@@ -166,4 +166,27 @@ def test_label_reconnect_does_not_show_partial_inbox(app,client):
     def revoked(**kw):raise ReconnectRequired('private-label-error')
     app.state.boxes['harbor'].labels=revoked
     r=client.get('/mail')
-    assert r.status_code==503 and 'Reconnect your Gmail' in r.text and 'Design review' not in r.text
+    assert r.status_code==503 and 'Connect to Gmail again' in r.text and 'Design review' not in r.text
+
+
+def test_search_origin_survives_thread_and_refresh(client):
+    import re,html
+    r=client.get('/mail',params={'q':'lease','folder':''})
+    target=html.unescape(re.search(r'href="([^"]+)"[^>]*><div class="row"><span class="sender">',r.text)[1])
+    assert 'q=lease' in target
+    r=client.get(target)
+    assert 'Back to search results' in r.text and 'q=lease' in r.text
+    refresh=html.unescape(re.search(r'href="([^"]+)">Refresh conversation',r.text)[1])
+    assert 'q=lease' in refresh
+    assert 'Account</a>' in r.text
+
+
+
+def test_date_display_keeps_exact_original_available(client):
+    r=client.get('/mail')
+    assert '18 Nov 2026' in r.text and 'title="Wed, 18 Nov 2026 09:30:00 +0000"' in r.text
+
+
+def test_empty_search_has_clear_recovery(client):
+    r=client.get('/mail',params={'q':'no-such-fictional-message'})
+    assert 'No matching conversations' in r.text and 'Clear search' in r.text and 'Go to Inbox' in r.text
