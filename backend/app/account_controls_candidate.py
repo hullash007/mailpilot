@@ -187,17 +187,18 @@ def create_app(*, storage, config, cipher, state_signer, flow_factory, exchange_
     @app.get('/account')
     def settings(request: Request, account=Depends(account_for_browser)):
         connected = bool(account.credentials_blob)
-        body = '<h1>Account controls</h1><p>' + esc(account.email_address) + '</p>'
-        body += '<p>Local credentials: ' + ('stored' if connected else 'removed') + '.</p>'
-        body += '<p>Source candidate. These local operations do not revoke the Google grant or delete mail in Gmail. No provider request is made.</p>'
-        body += '<p>Disconnect removes local credentials and invalidates other MailPilot sessions. Imported mail stays readable in this browser. A new explicit Google sign-in can reconnect.</p>'
-        body += '<p>Erase removes active mailbox records, local action decisions, sync metadata and credentials. It blocks ordinary access from all prior MailPilot sessions. A minimal subject fence and operation receipts remain to block older callbacks and confirm outcomes. Pending login state expires after 10 minutes. Backups, snapshots and logs are not erased by this control. No retention or backup-expiry promise is made. Already displayed or saved copies on your devices are not removed.</p>'
-        for kind, label in [('disconnect', 'Disconnect locally'), ('erase', 'Erase active local data')]:
+        body = '<p><a href="/mail">Back to your mail</a></p><div class="account-head"><div><h1>Account</h1><p>' + esc(account.email_address) + '</p></div></div>'
+        descriptions = {
+            'disconnect': ('Disconnect Google account', 'Disconnect this Google account from MailPilot. Your emails stay in Gmail.', 'MailPilot removes its saved Google credentials and ends other MailPilot sessions. Stored conversations remain available in this browser. This does not revoke access in your Google Account settings. Sign in with Google to reconnect.', 'Disconnect this account from MailPilot', 'Disconnect account'),
+            'erase': ('Remove MailPilot data', 'Remove this account and its active stored mailbox data from MailPilot. Your emails stay in Gmail.', 'This removes active mailbox records, saved decisions, sync data and credentials, and ends access from previous MailPilot sessions. Minimal account safeguards and operation receipts remain. Pending sign-ins expire within 10 minutes. Backups, snapshots, logs and copies saved on your devices are not removed by this action.', 'Remove my active MailPilot data', 'Remove MailPilot data')}
+        for kind in ('disconnect','erase'):
+            title,description,detail,confirmation,label = descriptions[kind]
             operation_id = secrets.token_hex(24)
+            body += '<section class="card account-card"><h2>'+title+'</h2><p>'+description+'</p><details class="confirmation"><summary>'+label+'</summary><p>'+detail+'</p>'
             body += '<form method="post" action="/account/' + kind + '"><input type="hidden" name="operation_id" value="' + operation_id + '">'
-            body += '<p><label><input type="checkbox" name="confirmed" value="yes" required> I understand the ' + kind + ' limits above.</label></p><button>' + label + '</button></form>'
-        body += '<p><a href="/workspace">Stored conversations</a> | <a href="/login">Start a new Google sign-in</a></p>'
-        return page('<section class="card">' + body + '</section>')
+            body += '<label><input type="checkbox" name="confirmed" value="yes" required> '+confirmation+'</label><button>' + label + '</button></form></details></section>'
+        body += '<nav><a href="/workspace">Stored conversations</a><a href="/login">Reconnect with Google</a></nav>'
+        return page(body)
 
     def local_control(request, db, kind, operation_id, confirmed):
         subject, generation = browser_identity(request)
@@ -207,12 +208,12 @@ def create_app(*, storage, config, cipher, state_signer, flow_factory, exchange_
         try:
             op = controls.apply_control(db, subject=subject, session_generation=generation,
                 kind=kind, operation_id=operation_id)
-            body = '<h1>Local ' + kind + ' committed</h1><p>Receipt: ' + esc(op.id) + '</p>'
-            body += '<p>This confirms a past local transaction, not the current Google grant state. Remote revocation was not attempted. Gmail messages were not deleted.</p>'
+            body = '<h1>' + ('Account disconnected' if kind == 'disconnect' else 'MailPilot data removed') + '</h1><details><summary>Operation receipt</summary><p>Local transaction committed. Receipt: ' + esc(op.id) + '</p></details>'
+            body += '<p>Your emails in Gmail have not been deleted. Revoking access in your Google Account was not attempted.</p>'
             if kind == 'disconnect':
-                body += '<p>Local credentials were removed and earlier sessions were invalidated. Imported mail was kept. A later explicit sign-in can reconnect.</p>'
+                body += '<p>MailPilot removed its saved Google credentials and ended earlier sessions. Your stored conversations were kept. Sign in with Google to reconnect.</p>'
             else:
-                body += '<p>Active mailbox records and local decisions were erased. Minimal subject fence and operation receipts remain. Backups, snapshots and logs were not erased.</p>'
+                body += '<p>Your active stored mailbox data and saved decisions were removed. Minimal account safeguards and operation receipts remain. Backups, snapshots and logs were not erased.</p>'
             body += '<p><a href="/account">Account controls</a> | <a href="/">Home</a></p>'
             response = page('<section class="card">' + body + '</section>')
             if kind == 'disconnect' and controls.fence_generation(db, subject) == op.generation:
