@@ -4,18 +4,20 @@ A read-only email workspace with explainable classification and an experimental,
 
 MailPilot turns stored Gmail messages into a searchable inbox, source-linked thread reviews and a bounded sample briefing. The project explores a practical question: how can an email assistant add useful intelligence without giving a language model control of the mailbox?
 
-**Status (18 November 2026):** working public fictional sample plus a restricted private Google pilot. The current private pilot supports the configured tester's five previously stored messages, conversation detail and literal search. Real Google sign-in and the same-browser callback have been checked against the current encrypted-storage composition. AI and full-mailbox sync are off. General Gmail onboarding, sending, deleting, relabelling and autonomous follow-up are not enabled.
+**Status (18 November 2026):** working public fictional sample plus a restricted owner-private Gmail reader. The configured tester can read current Inbox pages, browse older conversations, search Gmail, open plain-text threads and refresh deliberately. Actual Gmail reads and token refresh passed on the encrypted ARM-hosted release using the existing same-account Google session. This release did not force a new Google sign-in. AI and background/full-mailbox sync stay off. Sending, deleting, relabelling and general Gmail signup are not enabled. HTML-only messages and attachment downloads are not supported yet.
 
 ## Open the website
 
 - [Try the fictional sample](https://mailpilot-workspace.duckdns.org/): no login, download or local setup. Sample decisions stay in that browser.
-- [Open the private stored workspace](https://mailpilot-workspace.duckdns.org/workspace): Google sign-in is required and currently restricted to the configured tester. [Direct sign-in](https://mailpilot-workspace.duckdns.org/login) is also available. Other visitors cannot connect their own Gmail yet.
+- [Open the private current Gmail reader](https://mailpilot-workspace.duckdns.org/mail): Google sign-in is required and restricted to the configured tester. The [older stored workspace](https://mailpilot-workspace.duckdns.org/workspace) remains available. [Direct sign-in](https://mailpilot-workspace.duckdns.org/login) is also available. Other visitors cannot connect their own Gmail yet.
 
 The public sample is not evidence of real-mail actions. Connecting a mailbox does not publish its contents. Google Testing status, verification and any required security assessment remain separate release gates.
 
 ## Current source and deployment
 
-The editable source includes reviewed revision `6a6ad3e584d4d59fcea5a098448533a3adcd021d`. The separately retained source-only ZIP is a versioned snapshot, not the application delivery method. The live private release uses a source-hash-verified launcher and the `app.private_entrypoint_candidate.create_from_environment` factory, with a pinned SQLCipher runtime and explicit schema version. Candidate names are historical source-module names; they are not a claim that all experimental routes are live.
+The editable source includes the current reader from reviewed deployment revision `9ef2c1b1753d733fb5043963b125c82d4dee03c1`, layered on the earlier stored pilot. The separately retained source-only ZIP is a versioned snapshot, not the application delivery method. The live private release uses a source-hash-verified launcher and `app.private_reader_entrypoint_candidate.create_reader_from_environment`, with the same pinned SQLCipher runtime, explicit schema version, owner allowlist and readonly scopes. Candidate names are historical source-module names, not a claim that all experimental routes are live.
+
+The reader fetches current data on navigation/refresh and does not persist new mail or write refreshed credentials. A new access token is held only for that page request, which adds token-endpoint latency and traffic. Signed page continuations expire and bind the account/search/folder but are not encrypted. Plain-text bodies are escaped; remote HTML/images are not loaded. HTTP byte/time checks are bounded but do not hard-cancel DNS or a stalled stream. Existing-session compatibility, Inbox/older/search/thread/refresh and old stored-workspace compatibility were checked against the actual private deployment. General-user verification and policy gates remain separate.
 
 The private pilot uses an encrypted active database and separately encrypted OAuth token values. The original plaintext database remains as a restricted historical rollback artifact; it has not been erased. After new writes, restoring that old file would lose state and is not a valid automatic rollback. No backup-erasure, retention, recovery-time or availability guarantee is made.
 
@@ -23,6 +25,7 @@ The private pilot uses an encrypted active database and separately encrypted OAu
 
 | Capability | Current boundary |
 | --- | --- |
+| Current private reader | Current-provider Inbox/Starred/Sent/All mail, custom labels, Gmail-wide search, older pages, plain-text threads and deliberate refresh; readonly owner pilot |
 | Gmail OAuth and ingestion | Read-only scope; encrypted OAuth tokens; message deduplication |
 | Local stored inbox (`app.main`) | Account selector, literal search, category/priority filters, cursor pagination and escaped plain-text detail |
 | Google-only stored inbox (`app.google_main`) | Subject-bound literal search, category/priority filters and older stored-record pages; qualified on the configured owner pilot |
