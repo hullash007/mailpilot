@@ -7,6 +7,8 @@ already-issued provider reads cannot be recalled after disconnect.
 from dataclasses import dataclass
 import hmac
 from fastapi import Depends, HTTPException, Request
+from .google_main import page
+from urllib.parse import urlsplit
 from .account_controls_candidate import Sessions, COOKIE
 from .services.account_controls_candidate import authenticated_account
 from .google_main import GooglePrincipal
@@ -30,6 +32,29 @@ def install_private_reader(app, *, storage, auth, cipher, page_key, policy, sess
     if not isinstance(cipher, TokenCipher):
         raise ValueError('Explicit cipher required')
     sessions = Sessions(auth.session_key, auth.origin)
+
+    def sign_in_page():
+        return page('<h1>Your Gmail, in one clear workspace</h1><section class="card"><p>Sign in with Google to open your private MailPilot inbox.</p><p>MailPilot currently reads your Gmail. It cannot send, delete or change your email.</p><p><a class="button" href="/login">Sign in with Google</a></p><small>This private workspace is restricted to its configured owner. Google may ask you to sign in again when your session expires.</small></section>')
+
+    @app.middleware('http')
+    async def reader_browser_entry(request, call_next):
+        # Browser navigation gets a usable entry, not raw API JSON. Explicit
+        # JSON/default clients still get the original401. No auth bypass/data.
+        browser = request.method in {'GET','HEAD'} and 'text/html' in request.headers.get('accept','').lower()
+        if browser and request.url.path == '/' and request.headers.get('host') == urlsplit(auth.origin).netloc:
+            response=sign_in_page()
+            response.headers.update({'Cache-Control':'no-store','X-Frame-Options':'DENY','X-Content-Type-Options':'nosniff','Referrer-Policy':'same-origin','Content-Security-Policy':"default-src 'none'; style-src 'unsafe-inline'; form-action 'self'; base-uri 'none'; frame-ancestors 'none'"})
+            return response
+        response=await call_next(request)
+        if browser and request.url.path.startswith(('/mail','/workspace','/account')) and response.status_code==401:
+            replacement=sign_in_page()
+            # Preserve privacy/security headers installed by existing boundary.
+            for name,value in response.headers.items():
+                if name.lower() not in ('content-type','content-length'):
+                    replacement.headers[name]=value
+            replacement.status_code=401
+            return replacement
+        return response
 
     def principal(request: Request, db=Depends(get_db)):
         identity = sessions.identity(request.cookies.get(COOKIE))
