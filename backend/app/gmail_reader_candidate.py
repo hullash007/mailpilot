@@ -69,9 +69,10 @@ def install_reader(app,*,provider_for,page_signer,policy,fixture=False,account_d
         valid_folder(folder)
         try:
             s=reader(account,db);data=s.conversation(thread_id)
-            body='<p><a href="'+esc(url(folder=folder))+'">← Back to mail</a></p><div class="heading"><h1>'+esc(data['subject'])+'</h1><a class="button" href="'+esc(url('/mail/threads/'+data['id'],folder=folder))+'">Refresh thread</a></div><p class="subtle">'+str(len(data['messages']))+' messages</p>'
+            body='<p><a href="'+esc(url(folder=folder))+'">← Back to mail</a></p><div class="heading"><h1>'+esc(data['subject'])+'</h1><a class="button" href="'+esc(url('/mail/threads/'+data['id'],folder=folder))+'">Refresh thread</a></div><p class="subtle">'+str(len(data['messages']))+' message'+('s' if len(data['messages'])!=1 else '')+'</p>'
             for m in data['messages']:
-                body+='<article class="message"><div class="mailhead"><div class="row"><h2>'+esc(m['sender'])+'</h2><time class="subtle">'+esc(m['date'])+'</time></div><div class="subtle">To: '+esc(m['to'])+'</div></div><pre>'+esc(m['body'] or 'No plain-text body is available for this message.')+'</pre>'
+                body+='<article class="message"><div class="mailhead"><div class="row"><h2>'+esc(m['sender'])+'</h2><time class="subtle">'+esc(m['date'])+'</time></div><div class="subtle">To: '+esc(m['to'])+'</div></div><pre>'+esc(m['body'] or 'No readable inline text is available for this message.')+'</pre>'
+                if m.get('body_format')=='html_text':body+='<p class="subtle">Converted from HTML to text. Images, styles and interactive content are not shown.</p>'
                 if m['truncated']:body+='<p class="subtle">Long message text is shortened in this view.</p>'
                 if m['attachments']:body+='<details><summary>Attachments ('+str(len(m['attachments']))+')</summary><p>'+esc(', '.join(m['attachments']))+'</p><p>Downloading attachments is not available in this candidate.</p></details>'
                 body+='</article>'
