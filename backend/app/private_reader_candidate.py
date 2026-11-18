@@ -34,7 +34,7 @@ def install_private_reader(app, *, storage, auth, cipher, page_key, policy, sess
     sessions = Sessions(auth.session_key, auth.origin)
 
     def sign_in_page():
-        return page('<h1>Your Gmail, in one clear workspace</h1><section class="card"><p>Sign in with Google to open your private MailPilot inbox.</p><p>MailPilot currently reads your Gmail. It cannot send, delete or change your email.</p><p><a class="button" href="/login">Sign in with Google</a></p><small>This private workspace is restricted to its configured owner. Google may ask you to sign in again when your session expires.</small></section>')
+        return page('<section class="welcome"><p class="eyebrow">YOUR MAIL, WITH ROOM TO FOCUS</p><h1>Find your email.<br>Follow the conversation.</h1><p class="lead">Search your Gmail, browse your labels and read conversations in one focused workspace.</p><p><a class="button" href="/login">Continue with Google</a></p><small>Use the Google account connected to your MailPilot workspace.</small><div class="features"><section><h2>Find the message you need</h2><p>Search across your mailbox, including older conversations.</p></section><section><h2>Your familiar folders</h2><p>Move between Inbox, Starred, Sent and your own labels.</p></section><section><h2>Read the whole conversation</h2><p>Keep messages together in a clear, focused reading view.</p></section></div></section>')
 
     @app.middleware('http')
     async def reader_browser_entry(request, call_next):
