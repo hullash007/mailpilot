@@ -14,7 +14,7 @@ def test_anonymous_browser_has_usable_signin_but_json_stays401(h):
     for path in ('/mail','/mail/threads/fictional','/workspace','/account'):
         r=c.get(path,headers={'Accept':'text/html'})
         assert r.status_code==401 and 'text/html' in r.headers['content-type']
-        assert 'href="/login"' in r.text and 'cannot send, delete or change' in r.text
+        assert 'href="/login"' in r.text and 'Find your email.' in r.text and 'cannot send' not in r.text
         assert r.headers['cache-control']=='no-store'
         for accept in ('application/json','*/*'):
             r=c.get(path,headers={'Accept':accept})
@@ -29,7 +29,7 @@ def test_anonymous_browser_has_usable_signin_but_json_stays401(h):
 
 def test_same_browser_login_state_callback_redirect_no_broader_scope(h):
     install(h);c=h.client()
-    r=c.get('/mail',headers={'Accept':'text/html'});assert 'Sign in with Google' in r.text
+    r=c.get('/mail',headers={'Accept':'text/html'});assert 'Continue with Google' in r.text
     login(h,c)
     assert len(h.calls)==1
     assert h.calls[0][0].scopes==h.cfg.oauth.scopes
