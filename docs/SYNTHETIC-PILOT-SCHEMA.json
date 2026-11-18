@@ -1,0 +1,129 @@
+{
+  "synthetic_only": true,
+  "user_version": 1001,
+  "marker": "mailpilot-synthetic-pilot-v1",
+  "required_tables_and_columns": {
+    "gmail_accounts": [
+      "id",
+      "email_address",
+      "google_user_id",
+      "credentials_blob",
+      "history_id",
+      "created_at"
+    ],
+    "oauth_states": [
+      "state",
+      "code_verifier",
+      "created_at",
+      "expires_at"
+    ],
+    "google_principals": [
+      "subject",
+      "account_id"
+    ],
+    "mailbox_sync": [
+      "account_id",
+      "generation",
+      "completed_generation",
+      "revision",
+      "scope",
+      "phase",
+      "retry_attempts",
+      "retry_at",
+      "retry_exhausted",
+      "pending_page",
+      "token_restarts",
+      "blocked",
+      "page_token",
+      "anchor",
+      "history_id",
+      "last_attempt",
+      "last_success",
+      "error_code"
+    ],
+    "message_remote_state": [
+      "id",
+      "account_id",
+      "gmail_message_id",
+      "deleted_at",
+      "excluded",
+      "fingerprint"
+    ],
+    "sync_runs": [
+      "id",
+      "account_id",
+      "started_at",
+      "finished_at",
+      "phase",
+      "outcome",
+      "error_code",
+      "inserted",
+      "updated",
+      "remote_deleted"
+    ],
+    "thread_snapshots": [
+      "id",
+      "account_id",
+      "gmail_thread_id",
+      "fetched_at",
+      "message_count",
+      "observed_generation",
+      "normalized_fingerprint",
+      "provider_history_id",
+      "message_ids",
+      "availability",
+      "excluded_count"
+    ],
+    "threads": [
+      "id",
+      "account_id",
+      "gmail_thread_id",
+      "subject",
+      "snippet",
+      "last_message_at"
+    ],
+    "emails": [
+      "id",
+      "thread_id",
+      "account_id",
+      "gmail_message_id",
+      "subject",
+      "sender",
+      "recipients",
+      "snippet",
+      "body_text",
+      "headers",
+      "label_ids",
+      "internal_date",
+      "is_sample",
+      "category",
+      "priority",
+      "classified_at",
+      "ai_category",
+      "ai_priority",
+      "ai_classified_at",
+      "classification_source",
+      "ai_status",
+      "ai_attempts",
+      "ai_attempted_at",
+      "ai_next_attempt_at",
+      "ai_model",
+      "ai_prompt_version",
+      "ingested_at"
+    ],
+    "action_decisions_candidate": [
+      "id",
+      "account_id",
+      "source_email_id",
+      "detector_version",
+      "evidence_fingerprint",
+      "status",
+      "revision",
+      "created_at",
+      "updated_at"
+    ],
+    "synthetic_fixture": [
+      "marker"
+    ]
+  }
+}

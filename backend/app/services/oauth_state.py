@@ -29,8 +29,22 @@ def _signing_key() -> bytes:
     return configured.encode() if configured else _process_key
 
 
+class StateSigner:
+    """Explicit state signer, preserving the legacy HMAC wire format."""
+    def __init__(self, key: bytes):
+        if type(key) is not bytes or len(key) < 32:
+            raise ValueError("Explicit OAuth state signing key must contain at least 32 bytes.")
+        self._key = key
+
+    def sign(self, state: str) -> str:
+        return hmac.new(self._key, state.encode(), sha256).hexdigest()
+
+    def matches(self, cookie_value: str | None, state: str) -> bool:
+        return bool(cookie_value) and hmac.compare_digest(cookie_value, self.sign(state))
+
+
 def sign_state(state: str) -> str:
-    """HMAC signature binding a state value to the browser cookie."""
+    """Legacy adapter retains configured or process-local fallback semantics."""
     return hmac.new(_signing_key(), state.encode(), sha256).hexdigest()
 
 
